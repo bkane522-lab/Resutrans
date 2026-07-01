@@ -10,10 +10,10 @@
 <link rel="apple-touch-icon" href="icon.svg">
 <style>
   :root{
-    --bg:#0b0c1e; --bg2:#12142c; --card:#161832; --card2:#1c1e40;
-    --grad1:#4fc3f7; --grad2:#9c6bff; --grad3:#7c4dff;
-    --text:#eef0fb; --sub:#9498c0; --danger:#3a1e2e; --danger-text:#ff8fae;
-    --border:rgba(255,255,255,0.08);
+    --bg:#12081f; --bg2:#1a0e2e; --card:#221333; --card2:#2a1840;
+    --grad1:#ffb648; --grad2:#ff6ec7; --grad3:#9c3aff;
+    --text:#f5eefe; --sub:#b09fc9; --danger:#3a1e2e; --danger-text:#ff8fae;
+    --border:rgba(255,182,72,0.15);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   body{
@@ -70,10 +70,13 @@
   }
   textarea{min-height:110px;resize:vertical;line-height:1.5;}
   .upload{
-    border:1.5px dashed rgba(124,77,255,.5); border-radius:16px; padding:18px;
-    text-align:center; color:var(--sub); font-size:13px; background:rgba(124,77,255,.06);
+    border:2px solid var(--grad1); border-radius:18px; padding:24px 18px;
+    text-align:center; color:var(--text); font-size:14px;
+    background:linear-gradient(135deg, rgba(255,182,72,.16), rgba(156,77,255,.16));
+    box-shadow:0 4px 18px rgba(255,182,72,.12);
+    display:block;
   }
-  .upload b{color:var(--text); display:block; margin-bottom:4px;}
+  .upload b{color:var(--grad1); display:block; margin-bottom:6px; font-size:17px;}
   input[type=file]{display:none;}
   .fileInfo{margin-top:10px;font-size:12px;color:var(--grad1); word-break:break-all;}
   .warn{margin-top:8px;font-size:12px;color:#ffcf6e;}
@@ -624,7 +627,20 @@ async function summarize(){
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: 'Tu résumes des transcriptions de cours (danse, musique, langues, etc.) en français. Donne : 1) un résumé clair en 3-5 phrases, 2) une liste à puces des points clés / corrections mentionnées, 3) si pertinent, un objectif pour la prochaine séance. Sois concis et concret.' },
+          { role: 'system', content: `Tu aides à retenir l'essentiel d'un cours (danse, musique, langue, etc.) à partir de sa transcription brute, en français.
+
+Ta réponse doit suivre EXACTEMENT cette structure en texte brut (pas de markdown, pas de #, pas de **) :
+
+RÉSUMÉ
+(3-4 phrases précises sur ce qui a été concrètement expliqué ou pratiqué — pas de généralités du type "le cours a couvert plusieurs aspects", va dans le détail réel du contenu)
+
+POINTS CLÉS ET CORRECTIONS
+- (chaque point technique, correction du prof, ou notion abordée, un par ligne avec un tiret — sois concret : cite les mouvements, techniques ou erreurs mentionnées, pas des généralités)
+
+OBJECTIF PROCHAINE SÉANCE
+(1-2 phrases actionnables : quoi travailler concrètement avant le prochain cours)
+
+Règles : reste fidèle au contenu réel de la transcription, ne complète jamais avec des suppositions génériques. Si la transcription est courte ou peu claire, dis-le plutôt que d'inventer du contenu.` },
           { role: 'user', content: transcript.slice(0, 15000) }
         ],
         temperature: 0.4
@@ -648,15 +664,21 @@ async function summarize(){
 }
 
 // ---------- EXPORT ----------
+function sanitizeFilename(str){
+  return (str || 'cours').trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
+}
+
 function exportTxt(){
   const c = courses.find(x=>x.id===currentId);
   const title = document.getElementById('f-title').value || "cours";
   const content = `${title}\nThème : ${document.getElementById('f-theme').value}\n\n--- TRANSCRIPTION ---\n${document.getElementById('f-transcript').value}\n\n--- RÉSUMÉ IA ---\n${document.getElementById('f-summary').value}\n\n--- NOTES PERSONNELLES ---\n${document.getElementById('f-notes').value}\n`;
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  // Le BOM UTF-8 (\uFEFF) force les visionneuses de fichiers à reconnaître l'encodage
+  // correctement — sans ça, les accents s'affichent mal sur certains lecteurs Android.
+  const blob = new Blob(['\uFEFF' + content], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = title.replace(/[^a-z0-9]+/gi,'_') + '.txt';
+  a.download = sanitizeFilename(title) + '.txt';
   document.body.appendChild(a);
   a.click();
   a.remove();
