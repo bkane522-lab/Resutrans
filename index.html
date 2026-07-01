@@ -143,6 +143,18 @@
 
     <div id="courseList"></div>
     <div id="emptyState" class="empty hidden">Aucun cours pour l'instant. Ajoute ta première vidéo de cours 👆</div>
+
+    <div class="card" style="margin-top:18px;">
+      <b style="display:block;margin-bottom:6px;">💾 Sauvegarde</b>
+      <span style="font-size:13px;color:var(--sub);display:block;margin-bottom:12px;">
+        Tes cours sont stockés uniquement sur cet appareil. Si tu changes de téléphone, exporte une sauvegarde ici, puis restaure-la sur le nouvel appareil.
+      </span>
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" onclick="exportAllCourses()">⬇️ Exporter tout</button>
+        <label class="btn btn-ghost btn-sm" for="importBackupFile" style="text-align:center;">📤 Restaurer</label>
+      </div>
+      <input type="file" id="importBackupFile" accept="application/json" onchange="onImportBackup(event)">
+    </div>
   </div>
 
   <!-- FICHE COURS -->
@@ -158,13 +170,20 @@
     <input type="text" id="f-title" placeholder="Ex: Cours de kizomba - guidage">
 
     <label class="field-label">Thème</label>
-    <select id="f-theme">
-      <option>Danse</option>
+    <input type="text" id="f-theme" list="themeOptions" placeholder="Ex: Kizomba, Urban Kiz, Semba, Musique...">
+    <datalist id="themeOptions">
+      <option>Kizomba</option>
+      <option>Urban Kiz</option>
+      <option>Semba</option>
+      <option>Tarraxo</option>
+      <option>Zouk</option>
+      <option>Afrobeats</option>
+      <option>Kompa</option>
       <option>Musique</option>
       <option>Langues</option>
       <option>Business / App</option>
       <option>Autre</option>
-    </select>
+    </datalist>
 
     <label class="field-label">Vidéo / audio du cours</label>
     <label class="upload" for="f-file">
@@ -323,7 +342,7 @@ function escapeHtml(s){
 
 // ---------- NAVIGATION ----------
 function openNewCourse(){
-  const c = { id: Date.now().toString(36), title:"", theme:"Danse", transcript:"", summary:"", notes:"", fileName:"" };
+  const c = { id: Date.now().toString(36), title:"", theme:"Kizomba", transcript:"", summary:"", notes:"", fileName:"" };
   courses.push(c);
   saveCourses(courses);
   openCourse(c.id);
@@ -334,7 +353,7 @@ function openCourse(id){
   currentFile = null;
   const c = courses.find(x=>x.id===id);
   document.getElementById('f-title').value = c.title || "";
-  document.getElementById('f-theme').value = c.theme || "Danse";
+  document.getElementById('f-theme').value = c.theme || "Kizomba";
   document.getElementById('f-transcript').value = c.transcript || "";
   document.getElementById('f-summary').value = c.summary || "";
   document.getElementById('f-notes').value = c.notes || "";
@@ -666,6 +685,53 @@ Règles : reste fidèle au contenu réel de la transcription, ne complète jamai
 // ---------- EXPORT ----------
 function sanitizeFilename(str){
   return (str || 'cours').trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
+}
+
+// ---------- SAUVEGARDE / RESTAURATION COMPLÈTE ----------
+function exportAllCourses(){
+  if(courses.length === 0){ toast("Aucun cours à exporter pour l'instant"); return; }
+  const data = JSON.stringify(courses, null, 2);
+  const blob = new Blob(['\uFEFF' + data], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const date = new Date().toISOString().slice(0, 10);
+  a.download = `resutrans_sauvegarde_${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast(`Sauvegarde exportée : ${courses.length} cours ✅`);
+}
+
+function onImportBackup(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const raw = String(reader.result).replace(/^\uFEFF/, '');
+      const imported = JSON.parse(raw);
+      if(!Array.isArray(imported)) throw new Error('Format invalide (pas une liste de cours)');
+      const existingIds = new Set(courses.map(c => c.id));
+      let added = 0;
+      imported.forEach(c => {
+        if(c && c.id && !existingIds.has(c.id)){
+          courses.push(c);
+          existingIds.add(c.id);
+          added++;
+        }
+      });
+      saveCourses(courses);
+      renderList();
+      toast(added > 0 ? `Sauvegarde restaurée : ${added} cours ajouté(s) ✅` : "Aucun nouveau cours à ajouter (déjà présents)");
+    }catch(err){
+      console.error('Restauration échouée', err);
+      toast("❌ Fichier de sauvegarde invalide ou corrompu");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
 }
 
 function exportTxt(){
