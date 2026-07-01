@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Resutrans",
   "short_name": "Resutrans",
   "description": "Transcris et résume tes vidéos de cours directement depuis ton téléphone.",
@@ -7,33 +8,34 @@
   "background_color": "#12081f",
   "theme_color": "#12081f",
   "orientation": "portrait",
+  "categories": ["education", "productivity"],
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "https://resutrans.vercel.app/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-192.png",
+      "src": "https://resutrans.vercel.app/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "https://resutrans.vercel.app/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "https://resutrans.vercel.app/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icon.svg",
+      "src": "https://resutrans.vercel.app/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
