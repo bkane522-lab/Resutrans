@@ -357,6 +357,14 @@ function onFileChosen(e){
 // Utilise l'API Web Audio (déjà intégrée à tous les navigateurs) pour décoder la piste audio
 // d'une vidéo/fichier, la ré-échantillonner en mono 16kHz, puis l'encoder en WAV.
 // Aucune librairie externe, aucun worker cross-origin : robuste et rapide.
+function withTimeout(promise, ms, message){
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function extractAudioWav(file){
   toast('<span class="spin"></span> Extraction de l\'audio…', true);
 
@@ -365,18 +373,34 @@ async function extractAudioWav(file){
   const tempCtx = new AudioCtx();
   let decoded;
   try{
-    decoded = await tempCtx.decodeAudioData(arrayBuffer);
+    decoded = await withTimeout(
+      tempCtx.decodeAudioData(arrayBuffer),
+      45000,
+      "Le décodage audio a dépassé 45s — le fichier a probablement des métadonnées de durée corrompues (fréquent avec certains enregistreurs d'écran Android)."
+    );
   } finally {
     tempCtx.close().catch(()=>{});
   }
 
+  // Sécurité : si la durée détectée est anormalement longue (métadonnées corrompues),
+  // on la plafonne pour éviter de tenter de traiter des heures de silence/bruit.
+  const MAX_DURATION_SEC = 20 * 60;
+  const duration = Math.min(decoded.duration, MAX_DURATION_SEC);
+  if(decoded.duration > MAX_DURATION_SEC){
+    console.warn('Durée détectée anormale (', decoded.duration, 's), plafonnée à', MAX_DURATION_SEC, 's');
+  }
+
   const targetRate = 16000; // même fréquence que celle utilisée en interne par Whisper
-  const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * targetRate), targetRate);
+  const offline = new OfflineAudioContext(1, Math.ceil(duration * targetRate), targetRate);
   const src = offline.createBufferSource();
   src.buffer = decoded;
   src.connect(offline.destination);
   src.start(0);
-  const rendered = await offline.startRendering();
+  const rendered = await withTimeout(
+    offline.startRendering(),
+    45000,
+    "Le traitement audio a dépassé 45s."
+  );
 
   return encodeWav(rendered);
 }
