@@ -35,12 +35,19 @@ Toutes les données (transcriptions, notes, titres) restent **stockées uniqueme
 - Ne partage pas le lien Vercel publiquement (garde-le pour toi).
 - Si un jour tu veux ouvrir l'app à d'autres personnes, il faudra revenir à un serveur proxy (voir section "Pour aller plus loin").
 
+## Compression automatique (nouveau)
+
+Si le fichier importé dépasse 3 Mo, l'app le compresse automatiquement avant l'envoi à Groq : extraction de l'audio, conversion en mono 16kHz à faible débit (32 kbps — largement suffisant pour la voix). Tout se passe **dans le navigateur**, rien n'est envoyé à un serveur pour cette étape.
+
+Résultat concret : une vidéo de cours d'1h30-2h tient généralement sous la limite gratuite de 25 Mo après compression, contre 15-20 min pour une vidéo brute non compressée.
+
+⚠️ **Premier passage** : la compression télécharge un petit moteur (~25-30 Mo, une seule fois, mis en cache ensuite par le navigateur) — fais-le en WiFi la première fois. Les passages suivants sont rapides et fonctionnent hors ligne une fois le moteur en cache.
+
+Si la compression échoue pour une raison quelconque (réseau, format non supporté), l'app retente automatiquement d'envoyer le fichier original — utile si le fichier est déjà petit.
+
 ## Limites connues
 
-- **Taille de fichier** : le tier gratuit de Groq accepte jusqu'à ~25 Mo par fichier audio/vidéo. Si ta vidéo est plus lourde (ex: un cours de 30-40 min filmé en HD), la transcription peut échouer. Solutions :
-  - Raccourcir la vidéo avant import.
-  - Enregistrer en qualité plus basse / audio seul si ton téléphone le permet.
-  - (Amélioration possible en v2 : extraction automatique de l'audio dans le navigateur pour réduire la taille avant envoi.)
+- **Taille de fichier** : même après compression, le tier gratuit de Groq reste plafonné à 25 Mo. Pour un cours filmé très long (plus de 2h), il faudra encore le raccourcir ou le couper en plusieurs morceaux avant import.
 - **Formats acceptés** : mp4, m4a, mp3, wav, webm, ogg, mpeg — donc les vidéos filmées au téléphone (mp4) fonctionnent directement, pas besoin d'extraire l'audio toi-même.
 - **Pas de synchronisation multi-appareils** : les cours sont stockés en local sur l'appareil où tu les crées. Si tu changes de téléphone, tu perds l'historique (sauf si tu exportes en TXT avant).
 - **Quota Groq** : comme pour tes autres projets, le tier gratuit Whisper a des limites de requêtes/jour. Si ça bloque, attends quelques heures ou vérifie ton usage sur console.groq.com.

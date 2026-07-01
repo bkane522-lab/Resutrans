@@ -161,7 +161,7 @@
     </label>
     <input type="file" id="f-file" accept="video/*,audio/*" onchange="onFileChosen(event)">
     <div id="fileInfo" class="fileInfo hidden"></div>
-    <div id="sizeWarn" class="warn hidden">⚠️ Fichier volumineux (&gt;25 Mo). La transcription gratuite Groq peut refuser ce fichier. Essaie de raccourcir la vidéo ou de couper l'audio si ça échoue.</div>
+    <div id="sizeWarn" class="warn hidden"></div>
 
     <div class="row" style="margin-top:12px;">
       <button class="btn btn-ghost btn-sm" onclick="startTranscription()">🎙️ Transcrire</button>
@@ -216,6 +216,9 @@ function getGroqKey(){ return localStorage.getItem(LS_KEY) || ""; }
 let courses = loadCourses();
 let currentId = null;
 let currentFile = null; // File object held in memory only during this session
+let ffmpegInstance = null; // lazy-loaded audio compressor
+const COMPRESS_THRESHOLD = 3 * 1024 * 1024; // 3 Mo : au-delà, on compresse avant l'envoi
+const GROQ_LIMIT = 25 * 1024 * 1024; // 25 Mo : limite tier gratuit Groq
 
 // ---------- TOAST ----------
 let toastTimer = null;
@@ -343,8 +346,46 @@ function onFileChosen(e){
   fi.classList.remove('hidden');
 
   const warn = document.getElementById('sizeWarn');
-  if(file.size > 25*1024*1024){ warn.classList.remove('hidden'); }
-  else { warn.classList.add('hidden'); }
+  if(file.size > COMPRESS_THRESHOLD){
+    warn.textContent = "ℹ️ Ce fichier sera compressé automatiquement (audio mono, qualité voix) avant l'envoi, pour rester sous la limite gratuite de 25 Mo. Le premier passage télécharge le moteur de compression (~25-30 Mo, une seule fois — WiFi conseillé).";
+    warn.classList.remove('hidden');
+  } else {
+    warn.classList.add('hidden');
+  }
+}
+
+// ---------- COMPRESSION AUDIO (ffmpeg.wasm, 100% dans le navigateur) ----------
+async function loadFFmpeg(){
+  if(ffmpegInstance) return ffmpegInstance;
+  const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
+  const { toBlobURL } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
+  const ffmpeg = new FFmpeg();
+  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+  ffmpeg.on('progress', ({ progress }) => {
+    const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
+    toast(`<span class="spin"></span> Compression audio… ${pct}%`, true);
+  });
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+  });
+  ffmpegInstance = ffmpeg;
+  return ffmpeg;
+}
+
+async function compressToMp3(file){
+  const { fetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
+  toast('<span class="spin"></span> Chargement du moteur de compression…', true);
+  const ffmpeg = await loadFFmpeg();
+  const ext = (file.name.match(/\.[a-zA-Z0-9]+$/) || ['.mp4'])[0];
+  const inputName = 'input' + ext;
+  await ffmpeg.writeFile(inputName, await fetchFile(file));
+  // Audio mono 16kHz, 32kbps : largement suffisant pour la voix, ~14 Mo/heure.
+  await ffmpeg.exec(['-i', inputName, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', 'output.mp3']);
+  const data = await ffmpeg.readFile('output.mp3');
+  ffmpeg.deleteFile(inputName).catch(()=>{});
+  ffmpeg.deleteFile('output.mp3').catch(()=>{});
+  return new Blob([data.buffer], { type: 'audio/mp3' });
 }
 
 // ---------- TRANSCRIPTION (Groq Whisper, direct from browser) ----------
@@ -353,11 +394,33 @@ async function startTranscription(){
   if(!key){ toast("Ajoute d'abord ta clé Groq (⚙️ en haut à droite)"); return; }
   if(!currentFile){ toast("Choisis d'abord un fichier vidéo/audio"); return; }
 
+  let fileToSend = currentFile;
+
+  if(currentFile.size > COMPRESS_THRESHOLD){
+    try{
+      const compressed = await compressToMp3(currentFile);
+      const beforeMb = (currentFile.size/1024/1024).toFixed(1);
+      const afterMb = (compressed.size/1024/1024).toFixed(1);
+      fileToSend = new File([compressed], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.mp3', { type: 'audio/mp3' });
+      toast(`Compression : ${beforeMb} Mo → ${afterMb} Mo ✅`, true);
+    }catch(err){
+      console.error('Compression échouée, envoi du fichier original', err);
+      toast("⚠️ Compression indisponible, tentative d'envoi du fichier original…", true);
+      fileToSend = currentFile;
+    }
+  }
+
+  if(fileToSend.size > GROQ_LIMIT){
+    hideToast();
+    toast("❌ Fichier encore trop volumineux (>25 Mo) même après compression. Essaie une vidéo plus courte.");
+    return;
+  }
+
   toast('<span class="spin"></span> Transcription en cours… (peut prendre 1-2 min)', true);
 
   try{
     const form = new FormData();
-    form.append('file', currentFile);
+    form.append('file', fileToSend);
     form.append('model', 'whisper-large-v3-turbo');
     form.append('language', 'fr');
     form.append('response_format', 'text');
