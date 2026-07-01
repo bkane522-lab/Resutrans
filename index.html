@@ -205,6 +205,7 @@
     </div>
 
     <label class="field-label">Vidéo à traiter</label>
+    <small class="help" style="margin-bottom:8px;">⏱️ L'extraction prend la durée réelle de la vidéo. Garde cet onglet ouvert et à l'écran (ne verrouille pas le téléphone, ne change pas d'appli) pendant le traitement.</small>
     <label class="upload" for="x-file">
       <b>📁 Choisir une vidéo</b>
       mp4, mov, webm…
@@ -446,7 +447,7 @@ function onFileChosen(e){
 
   const warn = document.getElementById('sizeWarn');
   if(file.size > COMPRESS_THRESHOLD){
-    warn.textContent = "ℹ️ L'audio sera extrait automatiquement avant l'envoi (dans le navigateur, sans téléchargement — ça prend la durée de la vidéo), pour rester sous la limite gratuite de 25 Mo (~1h30 de cours max une fois extrait).";
+    warn.textContent = "ℹ️ L'audio sera extrait automatiquement avant l'envoi (dans le navigateur, sans téléchargement — ça prend la durée de la vidéo), pour rester sous la limite gratuite de 25 Mo (~1h30 de cours max une fois extrait). Garde l'écran allumé et l'appli ouverte pendant l'extraction.";
     warn.classList.remove('hidden');
   } else {
     warn.classList.add('hidden');
@@ -459,7 +460,20 @@ function onFileChosen(e){
 // muette, en arrière-plan) et enregistre uniquement l'audio au fur et à mesure.
 // Ne charge JAMAIS le fichier entier en mémoire d'un coup — fonctionne donc même
 // pour des fichiers très volumineux (300+ Mo), contrairement à un décodage en un bloc.
+let activeWakeLock = null;
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      activeWakeLock = await navigator.wakeLock.request('screen');
+    }
+  }catch(e){ console.warn('Wake Lock indisponible :', e); }
+}
+function releaseWakeLock(){
+  if(activeWakeLock){ activeWakeLock.release().catch(()=>{}); activeWakeLock = null; }
+}
+
 async function extractAudioViaPlayback(file){
+  await requestWakeLock(); // empêche l'écran de s'éteindre pendant l'extraction (temps réel)
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const video = document.createElement('video');
@@ -479,6 +493,7 @@ async function extractAudioViaPlayback(file){
       video.remove();
       URL.revokeObjectURL(url);
       if(audioCtx) audioCtx.close().catch(()=>{});
+      releaseWakeLock();
     };
 
     video.onerror = () => { cleanup(); reject(new Error("Impossible de lire ce fichier vidéo pour en extraire l'audio.")); };
