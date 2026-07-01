@@ -37,20 +37,21 @@ Toutes les données (transcriptions, notes, titres) restent **stockées uniqueme
 
 ## Extraction audio automatique
 
-Si le fichier importé dépasse 3 Mo, l'app en extrait l'audio avant l'envoi à Groq :
+Si le fichier importé dépasse 3 Mo, l'app en extrait l'audio avant l'envoi à Groq, **entièrement via une fonction native du navigateur** (l'API Web Audio, déjà intégrée à Chrome — aucun téléchargement, aucune librairie externe, aucun risque de blocage réseau) :
 
-1. **Copie directe** (par défaut) : la piste audio d'origine est extraite telle quelle, sans ré-encodage — quasi instantané, qualité intacte. Ça suffit pour la grande majorité des clips courts (quelques minutes), car la piste audio seule est presque toujours bien plus légère que la vidéo.
-2. **Compression de secours** (seulement si l'étape 1 donne encore un fichier de plus de 25 Mo) : ré-encodage en mono 16kHz à faible débit — plus lent, mais garantit une taille réduite pour les fichiers longs.
+1. Décodage de la piste audio de la vidéo.
+2. Ré-échantillonnage en mono 16kHz (la fréquence utilisée en interne par Whisper).
+3. Encodage en WAV, envoyé à la place de la vidéo d'origine.
 
-Tout se passe **dans le navigateur**, rien n'est envoyé à un serveur pour cette étape.
+Tout se passe **dans le navigateur**, rien n'est envoyé à un serveur pour cette étape, et c'est rapide (quelques secondes pour un clip de quelques minutes).
 
-⚠️ **Premier passage** : le moteur de compression est téléchargé une seule fois (~25-30 Mo), mis en cache ensuite par le navigateur — fais ce premier test en WiFi. Les passages suivants sont rapides.
+**Capacité résultante : environ 13 minutes de cours par fichier** dans la limite gratuite de 25 Mo de Groq (le format WAV n'est pas compressé, contrairement à un mp3 — c'est le compromis pour une extraction fiable et sans dépendance externe). Largement suffisant pour des clips de cours de quelques minutes.
 
-Si l'extraction échoue pour une raison quelconque (réseau, format non supporté), l'app retente automatiquement d'envoyer le fichier original — utile si le fichier est déjà petit.
+Si l'extraction échoue pour une raison quelconque (format non supporté), l'app retente automatiquement d'envoyer le fichier original — utile si le fichier est déjà petit.
 
 ## Limites connues
 
-- **Taille de fichier** : même après extraction/compression, le tier gratuit de Groq reste plafonné à 25 Mo. Pour un cours filmé très long (plus de 1h30-2h), il faudra encore le raccourcir ou le couper en plusieurs morceaux avant import.
+- **Taille de fichier** : le tier gratuit de Groq reste plafonné à 25 Mo, soit ~13 minutes de cours une fois l'audio extrait en WAV. Pour un cours plus long, il faudra le couper en plusieurs morceaux avant import (dis-le-moi si besoin, on peut ajouter un découpage automatique).
 - **Formats acceptés** : mp4, m4a, mp3, wav, webm, ogg, mpeg — donc les vidéos filmées au téléphone (mp4) fonctionnent directement, pas besoin d'extraire l'audio toi-même.
 - **Pas de synchronisation multi-appareils** : les cours sont stockés en local sur l'appareil où tu les crées. Si tu changes de téléphone, tu perds l'historique (sauf si tu exportes en TXT avant).
 - **Quota Groq** : comme pour tes autres projets, le tier gratuit Whisper a des limites de requêtes/jour. Si ça bloque, attends quelques heures ou vérifie ton usage sur console.groq.com.

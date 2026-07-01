@@ -216,8 +216,7 @@ function getGroqKey(){ return localStorage.getItem(LS_KEY) || ""; }
 let courses = loadCourses();
 let currentId = null;
 let currentFile = null; // File object held in memory only during this session
-let ffmpegInstance = null; // lazy-loaded audio compressor
-const COMPRESS_THRESHOLD = 3 * 1024 * 1024; // 3 Mo : au-delà, on compresse avant l'envoi
+const COMPRESS_THRESHOLD = 3 * 1024 * 1024; // 3 Mo : au-delà, on extrait l'audio avant l'envoi
 const GROQ_LIMIT = 25 * 1024 * 1024; // 25 Mo : limite tier gratuit Groq
 
 // ---------- TOAST ----------
@@ -347,68 +346,72 @@ function onFileChosen(e){
 
   const warn = document.getElementById('sizeWarn');
   if(file.size > COMPRESS_THRESHOLD){
-    warn.textContent = "ℹ️ L'audio sera extrait automatiquement avant l'envoi (rapide pour les clips courts, sans perte de qualité), pour rester sous la limite gratuite de 25 Mo. Le premier passage télécharge le moteur de compression (~25-30 Mo, une seule fois — WiFi conseillé).";
+    warn.textContent = "ℹ️ L'audio sera extrait automatiquement avant l'envoi (rapide, directement dans le navigateur, sans téléchargement), pour rester sous la limite gratuite de 25 Mo (~13 min de cours max une fois extrait).";
     warn.classList.remove('hidden');
   } else {
     warn.classList.add('hidden');
   }
 }
 
-// ---------- COMPRESSION AUDIO (ffmpeg.wasm, 100% dans le navigateur) ----------
-async function loadFFmpeg(){
-  if(ffmpegInstance) return ffmpegInstance;
-  const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
-  const { toBlobURL } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
-  const ffmpeg = new FFmpeg();
-  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-  const pkgBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm';
-  ffmpeg.on('progress', ({ progress }) => {
-    const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
-    toast(`<span class="spin"></span> Compression audio… ${pct}%`, true);
-  });
-  await ffmpeg.load({
-    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    // Le worker interne doit aussi être chargé en blob (même origine),
-    // sinon le navigateur bloque sa création (cross-origin worker).
-    classWorkerURL: await toBlobURL(`${pkgBase}/worker.js`, 'text/javascript'),
-  });
-  ffmpegInstance = ffmpeg;
-  return ffmpeg;
-}
+// ---------- EXTRACTION AUDIO (100% native navigateur, sans téléchargement externe) ----------
+// Utilise l'API Web Audio (déjà intégrée à tous les navigateurs) pour décoder la piste audio
+// d'une vidéo/fichier, la ré-échantillonner en mono 16kHz, puis l'encoder en WAV.
+// Aucune librairie externe, aucun worker cross-origin : robuste et rapide.
+async function extractAudioWav(file){
+  toast('<span class="spin"></span> Extraction de l\'audio…', true);
 
-async function extractAudio(file){
-  const { fetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
-  toast('<span class="spin"></span> Chargement du moteur de compression…', true);
-  const ffmpeg = await loadFFmpeg();
-  const ext = (file.name.match(/\.[a-zA-Z0-9]+$/) || ['.mp4'])[0];
-  const inputName = 'input' + ext;
-  await ffmpeg.writeFile(inputName, await fetchFile(file));
-
-  const cleanup = (names) => names.forEach(n => ffmpeg.deleteFile(n).catch(()=>{}));
-
-  // 1) Copie directe du flux audio, SANS ré-encodage : quasi instantané, qualité intacte.
-  //    Fonctionne tant que la piste audio d'origine (souvent AAC) tient déjà sous 25 Mo,
-  //    ce qui est le cas pour la grande majorité des clips courts (quelques minutes).
+  const arrayBuffer = await file.arrayBuffer();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const tempCtx = new AudioCtx();
+  let decoded;
   try{
-    toast('<span class="spin"></span> Extraction rapide de l\'audio…', true);
-    await ffmpeg.exec(['-i', inputName, '-vn', '-acodec', 'copy', 'output.m4a']);
-    const fastData = await ffmpeg.readFile('output.m4a');
-    if(fastData && fastData.byteLength > 0 && fastData.byteLength <= GROQ_LIMIT){
-      cleanup([inputName, 'output.m4a']);
-      return { blob: new Blob([fastData.buffer], { type: 'audio/mp4' }), ext: '.m4a' };
-    }
-    cleanup(['output.m4a']);
-  }catch(e){
-    console.warn('Copie directe impossible, passage au ré-encodage compressé', e);
+    decoded = await tempCtx.decodeAudioData(arrayBuffer);
+  } finally {
+    tempCtx.close().catch(()=>{});
   }
 
-  // 2) Repli : ré-encodage compressé (mono 16kHz 32kbps) — plus lent, mais garantit une taille réduite.
-  //    Utile pour les fichiers longs ou dont la piste audio d'origine est déjà volumineuse.
-  await ffmpeg.exec(['-i', inputName, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', 'output.mp3']);
-  const data = await ffmpeg.readFile('output.mp3');
-  cleanup([inputName, 'output.mp3']);
-  return { blob: new Blob([data.buffer], { type: 'audio/mp3' }), ext: '.mp3' };
+  const targetRate = 16000; // même fréquence que celle utilisée en interne par Whisper
+  const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * targetRate), targetRate);
+  const src = offline.createBufferSource();
+  src.buffer = decoded;
+  src.connect(offline.destination);
+  src.start(0);
+  const rendered = await offline.startRendering();
+
+  return encodeWav(rendered);
+}
+
+function encodeWav(audioBuffer){
+  const sampleRate = audioBuffer.sampleRate;
+  const samples = audioBuffer.getChannelData(0);
+  const dataSize = samples.length * 2; // 16-bit
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  const writeString = (offset, str) => { for(let i=0;i<str.length;i++) view.setUint8(offset+i, str.charCodeAt(i)); };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);   // PCM
+  view.setUint16(22, 1, true);   // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // byte rate
+  view.setUint16(32, 2, true);   // block align
+  view.setUint16(34, 16, true);  // bits per sample
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for(let i=0;i<samples.length;i++){
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    offset += 2;
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
 }
 
 // ---------- TRANSCRIPTION (Groq Whisper, direct from browser) ----------
@@ -421,10 +424,10 @@ async function startTranscription(){
 
   if(currentFile.size > COMPRESS_THRESHOLD){
     try{
-      const result = await extractAudio(currentFile);
+      const wavBlob = await extractAudioWav(currentFile);
       const beforeMb = (currentFile.size/1024/1024).toFixed(1);
-      const afterMb = (result.blob.size/1024/1024).toFixed(1);
-      fileToSend = new File([result.blob], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + result.ext, { type: result.blob.type });
+      const afterMb = (wavBlob.size/1024/1024).toFixed(1);
+      fileToSend = new File([wavBlob], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.wav', { type: 'audio/wav' });
       toast(`Extraction audio : ${beforeMb} Mo → ${afterMb} Mo ✅`, true);
     }catch(err){
       console.error('Compression échouée', err);
