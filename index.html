@@ -119,6 +119,7 @@
   <!-- LISTE DES COURS -->
   <div id="view-list">
     <button class="btn btn-grad" onclick="openNewCourse()">+ Nouveau cours</button>
+    <button class="btn btn-ghost" style="margin-top:10px;" onclick="openExtractTool()">🎵 Extraire l'audio d'une vidéo (outil séparé)</button>
 
     <div class="stats">
       <div class="stat"><b id="statCount">0</b><span>cours</span></div>
@@ -179,6 +180,39 @@
 
     <div class="row" style="margin-top:16px;">
       <button class="btn btn-ghost btn-sm" onclick="exportTxt()">⬇️ Export TXT</button>
+    </div>
+  </div>
+
+  <!-- OUTIL SÉPARÉ : EXTRACTION AUDIO SEULE -->
+  <div id="view-extract" class="hidden">
+    <div class="backBtn" onclick="backFromExtract()">← Retour aux cours</div>
+
+    <div class="card">
+      <b style="display:block;margin-bottom:6px;">🎵 Extraire l'audio d'une vidéo</b>
+      <span style="font-size:13px;color:var(--sub);">
+        Outil indépendant : importe une vidéo, récupère juste le fichier audio (léger) en téléchargement.
+        Tu pourras ensuite l'importer dans un cours pour le transcrire — utile si l'extraction automatique
+        échoue sur un fichier particulier, ou pour tester séparément.
+      </span>
+    </div>
+
+    <label class="field-label">Vidéo à traiter</label>
+    <label class="upload" for="x-file">
+      <b>📁 Choisir une vidéo</b>
+      mp4, mov, webm…
+    </label>
+    <input type="file" id="x-file" accept="video/*" onchange="onExtractFileChosen(event)">
+    <div id="x-fileInfo" class="fileInfo hidden"></div>
+
+    <div class="row" style="margin-top:14px;">
+      <button class="btn btn-grad" onclick="runStandaloneExtraction()">Extraire l'audio</button>
+    </div>
+
+    <div id="x-result" class="card hidden" style="margin-top:16px;">
+      <b style="display:block;margin-bottom:8px;">✅ Audio extrait</b>
+      <div id="x-resultInfo" style="font-size:13px;color:var(--sub);margin-bottom:12px;"></div>
+      <a id="x-downloadLink" class="btn btn-grad" style="display:block;text-align:center;text-decoration:none;">⬇️ Télécharger l'audio</a>
+      <small class="help">Enregistre-le, puis importe-le dans un cours (bouton "Importer vidéo / audio") pour lancer la transcription.</small>
     </div>
   </div>
 
@@ -307,6 +341,64 @@ function backToList(){
   document.getElementById('view-course').classList.add('hidden');
   document.getElementById('view-list').classList.remove('hidden');
   renderList();
+}
+
+// ---------- OUTIL SÉPARÉ : EXTRACTION AUDIO SEULE ----------
+let extractFile = null;
+let extractObjectUrl = null;
+
+function openExtractTool(){
+  extractFile = null;
+  document.getElementById('x-fileInfo').classList.add('hidden');
+  document.getElementById('x-result').classList.add('hidden');
+  document.getElementById('x-file').value = "";
+  document.getElementById('view-list').classList.add('hidden');
+  document.getElementById('view-extract').classList.remove('hidden');
+}
+
+function backFromExtract(){
+  if(extractObjectUrl){ URL.revokeObjectURL(extractObjectUrl); extractObjectUrl = null; }
+  document.getElementById('view-extract').classList.add('hidden');
+  document.getElementById('view-list').classList.remove('hidden');
+  renderList();
+}
+
+function onExtractFileChosen(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  extractFile = file;
+  const mb = (file.size/1024/1024).toFixed(1);
+  const fi = document.getElementById('x-fileInfo');
+  fi.textContent = `Sélectionné : ${file.name} — ${mb} Mo`;
+  fi.classList.remove('hidden');
+  document.getElementById('x-result').classList.add('hidden');
+}
+
+async function runStandaloneExtraction(){
+  if(!extractFile){ toast("Choisis d'abord une vidéo"); return; }
+  try{
+    const audioBlob = await extractAudioViaPlayback(extractFile);
+    hideToast();
+    const beforeMb = (extractFile.size/1024/1024).toFixed(1);
+    const afterMb = (audioBlob.size/1024/1024).toFixed(1);
+
+    if(extractObjectUrl) URL.revokeObjectURL(extractObjectUrl);
+    extractObjectUrl = URL.createObjectURL(audioBlob);
+
+    const baseName = (extractFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.webm';
+    const link = document.getElementById('x-downloadLink');
+    link.href = extractObjectUrl;
+    link.download = baseName;
+
+    document.getElementById('x-resultInfo').textContent = `${beforeMb} Mo → ${afterMb} Mo (${baseName})`;
+    document.getElementById('x-result').classList.remove('hidden');
+    toast("Extraction terminée ✅");
+  }catch(err){
+    hideToast();
+    console.error('Extraction échouée', err);
+    const detail = (err && (err.message || err.toString())) || 'erreur inconnue';
+    toast(`❌ Extraction échouée : ${detail.slice(0,160)}`, false, 8000);
+  }
 }
 
 function saveCourse(silent){

@@ -11,6 +11,8 @@ App mobile (PWA) pour classer, transcrire et résumer tes vidéos de cours (dans
 5. Tu ajoutes tes notes personnelles.
 6. Tu peux **exporter en TXT**.
 
+**Outil séparé disponible** : depuis l'écran d'accueil, "🎵 Extraire l'audio d'une vidéo" ouvre un outil indépendant qui fait uniquement l'extraction — tu obtiens un fichier audio téléchargeable, à importer ensuite dans un cours pour le transcrire. Pratique pour tester l'extraction isolément si un fichier pose problème, ou pour préparer plusieurs fichiers audio à l'avance.
+
 Toutes les données (transcriptions, notes, titres) restent **stockées uniquement sur ton téléphone** (localStorage du navigateur). Rien n'est envoyé sur un serveur — sauf le fichier vidéo/audio et le texte de transcription, qui sont envoyés **directement de ton téléphone vers l'API Groq** au moment où tu appuies sur "Transcrire" ou "Résumé IA".
 
 ## Déploiement (5 min, depuis ton téléphone)
