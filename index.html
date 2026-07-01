@@ -118,6 +118,14 @@
 
   <!-- LISTE DES COURS -->
   <div id="view-list">
+    <div id="browserWarn" class="card hidden" style="border-color:rgba(255,207,110,.4);background:rgba(255,207,110,.08);">
+      <b style="color:#ffcf6e;">⚠️ Navigateur non recommandé</b>
+      <p style="font-size:13px;color:var(--sub);margin:6px 0 0;">
+        L'extraction audio ne fonctionne pas de façon fiable dans Edge sur Android (bug connu).
+        Ouvre <b>resutrans.vercel.app</b> dans <b>Chrome</b> pour que tout fonctionne correctement.
+      </p>
+    </div>
+
     <button class="btn btn-grad" onclick="openNewCourse()">+ Nouveau cours</button>
     <button class="btn btn-ghost" style="margin-top:10px;" onclick="openExtractTool()">🎵 Extraire l'audio d'une vidéo (outil séparé)</button>
 
@@ -644,8 +652,18 @@ if('serviceWorker' in navigator){
   });
 }
 
+// ---------- DÉTECTION NAVIGATEUR (Edge Android a un bug connu avec l'extraction audio) ----------
+function checkBrowserCompat(){
+  const ua = navigator.userAgent || "";
+  const isEdgeAndroid = /EdgA\//.test(ua) || (/Edg\//.test(ua) && /Android/.test(ua));
+  if(isEdgeAndroid){
+    document.getElementById('browserWarn').classList.remove('hidden');
+  }
+}
+
 // ---------- INIT ----------
 renderList();
+checkBrowserCompat();
 </script>
 </body>
 </html>

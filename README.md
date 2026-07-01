@@ -2,6 +2,12 @@
 
 App mobile (PWA) pour classer, transcrire et résumer tes vidéos de cours (danse, musique, langues…).
 
+## Navigateur recommandé
+
+⚠️ **Utilise Chrome.** L'extraction audio (nécessaire pour les vidéos de plus de 3 Mo) ne fonctionne pas de façon fiable dans **Edge sur Android** — bug constaté avec les fonctions audio avancées utilisées. Si l'app détecte qu'elle tourne dans Edge, un avertissement s'affiche automatiquement sur l'écran d'accueil.
+
+Pour l'installer et l'utiliser sans souci : ouvre le lien Vercel dans Chrome, puis "Ajouter à l'écran d'accueil" depuis Chrome (pas depuis Edge), pour que l'app installée utilise le bon moteur.
+
 ## Ce que ça fait
 
 1. Tu crées un "cours" (titre + thème).
