@@ -346,7 +346,7 @@ function onFileChosen(e){
 
   const warn = document.getElementById('sizeWarn');
   if(file.size > COMPRESS_THRESHOLD){
-    warn.textContent = "ℹ️ L'audio sera extrait automatiquement avant l'envoi (rapide, directement dans le navigateur, sans téléchargement), pour rester sous la limite gratuite de 25 Mo (~13 min de cours max une fois extrait).";
+    warn.textContent = "ℹ️ L'audio sera extrait automatiquement avant l'envoi (dans le navigateur, sans téléchargement — ça prend la durée de la vidéo), pour rester sous la limite gratuite de 25 Mo (~1h30 de cours max une fois extrait).";
     warn.classList.remove('hidden');
   } else {
     warn.classList.add('hidden');
@@ -431,10 +431,10 @@ async function startTranscription(){
 
   if(currentFile.size > COMPRESS_THRESHOLD){
     try{
-      const wavBlob = await extractAudioWav(currentFile);
+      const audioBlob = await extractAudioViaPlayback(currentFile);
       const beforeMb = (currentFile.size/1024/1024).toFixed(1);
-      const afterMb = (wavBlob.size/1024/1024).toFixed(1);
-      fileToSend = new File([wavBlob], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.wav', { type: 'audio/wav' });
+      const afterMb = (audioBlob.size/1024/1024).toFixed(1);
+      fileToSend = new File([audioBlob], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.webm', { type: 'audio/webm' });
       toast(`Extraction audio : ${beforeMb} Mo → ${afterMb} Mo ✅`, true);
     }catch(err){
       console.error('Compression échouée', err);
