@@ -1,12 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a0e2e"/>
+      <stop offset="100%" stop-color="#0d0616"/>
+    </linearGradient>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#ffb648"/>
+      <stop offset="50%" stop-color="#ff6ec7"/>
       <stop offset="100%" stop-color="#9c3aff"/>
     </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="96" fill="#12081f"/>
-  <rect x="40" y="40" width="432" height="432" rx="80" fill="url(#g)"/>
-  <text x="256" y="300" font-family="Arial, sans-serif" font-size="200" font-weight="800"
-    text-anchor="middle" fill="#12081f">RT</text>
+
+  <!-- Fond -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGrad)"/>
+  <rect width="512" height="512" rx="115" fill="none" stroke="url(#iconGrad)" stroke-width="3" opacity="0.35"/>
+
+  <!-- Onde sonore (audio) transformée en lignes de texte (transcription) -->
+  <g filter="url(#glow)">
+    <!-- Barres d'onde -->
+    <rect x="70"  y="206" width="34" height="100" rx="17" fill="url(#iconGrad)"/>
+    <rect x="124" y="156" width="34" height="200" rx="17" fill="url(#iconGrad)"/>
+    <rect x="178" y="126" width="34" height="260" rx="17" fill="url(#iconGrad)"/>
+    <rect x="232" y="181" width="34" height="150" rx="17" fill="url(#iconGrad)"/>
+
+    <!-- Lignes de texte -->
+    <rect x="296" y="197" width="146" height="26" rx="13" fill="url(#iconGrad)"/>
+    <rect x="296" y="243" width="146" height="26" rx="13" fill="url(#iconGrad)"/>
+    <rect x="296" y="289" width="110" height="26" rx="13" fill="url(#iconGrad)"/>
+  </g>
 </svg>
