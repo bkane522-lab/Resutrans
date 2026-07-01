@@ -479,7 +479,10 @@ async function extractAudioViaPlayback(file){
     const video = document.createElement('video');
     video.src = url;
     video.muted = false;      // doit "jouer" pour que le flux audio existe
-    video.volume = 0;         // filet de sécurité : rien n'est audible dans tous les cas
+    // Remarque : pas de volume=0 ici — sur certains navigateurs mobiles, couper le volume
+    // de l'élément coupe aussi le son AVANT qu'il n'atteigne l'enregistreur (silence capté).
+    // Le routage ci-dessous (source → dest, jamais vers les haut-parleurs) suffit à ce
+    // que rien ne soit audible pendant l'extraction.
     video.playsInline = true;
     video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;';
     document.body.appendChild(video);
