@@ -202,7 +202,7 @@
   </div>
 </div>
 
-<div id="toast" class="toast hidden"></div>
+<div id="toast" class="toast hidden" onclick="hideToast()"></div>
 
 <script>
 // ---------- STORAGE ----------
@@ -222,12 +222,12 @@ const GROQ_LIMIT = 25 * 1024 * 1024; // 25 Mo : limite tier gratuit Groq
 
 // ---------- TOAST ----------
 let toastTimer = null;
-function toast(msg, sticky){
+function toast(msg, sticky, duration){
   const t = document.getElementById('toast');
   t.innerHTML = msg;
   t.classList.remove('hidden');
   clearTimeout(toastTimer);
-  if(!sticky){ toastTimer = setTimeout(()=>t.classList.add('hidden'), 3200); }
+  if(!sticky){ toastTimer = setTimeout(()=>t.classList.add('hidden'), duration || 3200); }
 }
 function hideToast(){ document.getElementById('toast').classList.add('hidden'); }
 
@@ -404,15 +404,21 @@ async function startTranscription(){
       fileToSend = new File([compressed], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.mp3', { type: 'audio/mp3' });
       toast(`Compression : ${beforeMb} Mo → ${afterMb} Mo ✅`, true);
     }catch(err){
-      console.error('Compression échouée, envoi du fichier original', err);
-      toast("⚠️ Compression indisponible, tentative d'envoi du fichier original…", true);
+      console.error('Compression échouée', err);
+      const detail = (err && (err.message || err.toString())) || 'erreur inconnue';
+      toast(`⚠️ Compression échouée : ${detail.slice(0,160)}`, false, 8000);
+      await new Promise(r => setTimeout(r, 2500)); // laisse le temps de lire avant le prochain toast
       fileToSend = currentFile;
     }
   }
 
   if(fileToSend.size > GROQ_LIMIT){
     hideToast();
-    toast("❌ Fichier encore trop volumineux (>25 Mo) même après compression. Essaie une vidéo plus courte.");
+    if(fileToSend === currentFile){
+      toast("❌ La compression a échoué (voir message ci-dessus) et le fichier original dépasse 25 Mo. Réessaie — si ça persiste, note le message d'erreur et montre-le-moi.", false, 6000);
+    } else {
+      toast("❌ Fichier encore trop volumineux (>25 Mo) même après compression. Essaie une vidéo plus courte.");
+    }
     return;
   }
 
