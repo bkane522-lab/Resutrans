@@ -347,7 +347,7 @@ function onFileChosen(e){
 
   const warn = document.getElementById('sizeWarn');
   if(file.size > COMPRESS_THRESHOLD){
-    warn.textContent = "ℹ️ Ce fichier sera compressé automatiquement (audio mono, qualité voix) avant l'envoi, pour rester sous la limite gratuite de 25 Mo. Le premier passage télécharge le moteur de compression (~25-30 Mo, une seule fois — WiFi conseillé).";
+    warn.textContent = "ℹ️ L'audio sera extrait automatiquement avant l'envoi (rapide pour les clips courts, sans perte de qualité), pour rester sous la limite gratuite de 25 Mo. Le premier passage télécharge le moteur de compression (~25-30 Mo, une seule fois — WiFi conseillé).";
     warn.classList.remove('hidden');
   } else {
     warn.classList.add('hidden');
@@ -377,19 +377,38 @@ async function loadFFmpeg(){
   return ffmpeg;
 }
 
-async function compressToMp3(file){
+async function extractAudio(file){
   const { fetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
   toast('<span class="spin"></span> Chargement du moteur de compression…', true);
   const ffmpeg = await loadFFmpeg();
   const ext = (file.name.match(/\.[a-zA-Z0-9]+$/) || ['.mp4'])[0];
   const inputName = 'input' + ext;
   await ffmpeg.writeFile(inputName, await fetchFile(file));
-  // Audio mono 16kHz, 32kbps : largement suffisant pour la voix, ~14 Mo/heure.
+
+  const cleanup = (names) => names.forEach(n => ffmpeg.deleteFile(n).catch(()=>{}));
+
+  // 1) Copie directe du flux audio, SANS ré-encodage : quasi instantané, qualité intacte.
+  //    Fonctionne tant que la piste audio d'origine (souvent AAC) tient déjà sous 25 Mo,
+  //    ce qui est le cas pour la grande majorité des clips courts (quelques minutes).
+  try{
+    toast('<span class="spin"></span> Extraction rapide de l\'audio…', true);
+    await ffmpeg.exec(['-i', inputName, '-vn', '-acodec', 'copy', 'output.m4a']);
+    const fastData = await ffmpeg.readFile('output.m4a');
+    if(fastData && fastData.byteLength > 0 && fastData.byteLength <= GROQ_LIMIT){
+      cleanup([inputName, 'output.m4a']);
+      return { blob: new Blob([fastData.buffer], { type: 'audio/mp4' }), ext: '.m4a' };
+    }
+    cleanup(['output.m4a']);
+  }catch(e){
+    console.warn('Copie directe impossible, passage au ré-encodage compressé', e);
+  }
+
+  // 2) Repli : ré-encodage compressé (mono 16kHz 32kbps) — plus lent, mais garantit une taille réduite.
+  //    Utile pour les fichiers longs ou dont la piste audio d'origine est déjà volumineuse.
   await ffmpeg.exec(['-i', inputName, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', 'output.mp3']);
   const data = await ffmpeg.readFile('output.mp3');
-  ffmpeg.deleteFile(inputName).catch(()=>{});
-  ffmpeg.deleteFile('output.mp3').catch(()=>{});
-  return new Blob([data.buffer], { type: 'audio/mp3' });
+  cleanup([inputName, 'output.mp3']);
+  return { blob: new Blob([data.buffer], { type: 'audio/mp3' }), ext: '.mp3' };
 }
 
 // ---------- TRANSCRIPTION (Groq Whisper, direct from browser) ----------
@@ -402,11 +421,11 @@ async function startTranscription(){
 
   if(currentFile.size > COMPRESS_THRESHOLD){
     try{
-      const compressed = await compressToMp3(currentFile);
+      const result = await extractAudio(currentFile);
       const beforeMb = (currentFile.size/1024/1024).toFixed(1);
-      const afterMb = (compressed.size/1024/1024).toFixed(1);
-      fileToSend = new File([compressed], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.mp3', { type: 'audio/mp3' });
-      toast(`Compression : ${beforeMb} Mo → ${afterMb} Mo ✅`, true);
+      const afterMb = (result.blob.size/1024/1024).toFixed(1);
+      fileToSend = new File([result.blob], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + result.ext, { type: result.blob.type });
+      toast(`Extraction audio : ${beforeMb} Mo → ${afterMb} Mo ✅`, true);
     }catch(err){
       console.error('Compression échouée', err);
       const detail = (err && (err.message || err.toString())) || 'erreur inconnue';

@@ -35,19 +35,22 @@ Toutes les données (transcriptions, notes, titres) restent **stockées uniqueme
 - Ne partage pas le lien Vercel publiquement (garde-le pour toi).
 - Si un jour tu veux ouvrir l'app à d'autres personnes, il faudra revenir à un serveur proxy (voir section "Pour aller plus loin").
 
-## Compression automatique (nouveau)
+## Extraction audio automatique
 
-Si le fichier importé dépasse 3 Mo, l'app le compresse automatiquement avant l'envoi à Groq : extraction de l'audio, conversion en mono 16kHz à faible débit (32 kbps — largement suffisant pour la voix). Tout se passe **dans le navigateur**, rien n'est envoyé à un serveur pour cette étape.
+Si le fichier importé dépasse 3 Mo, l'app en extrait l'audio avant l'envoi à Groq :
 
-Résultat concret : une vidéo de cours d'1h30-2h tient généralement sous la limite gratuite de 25 Mo après compression, contre 15-20 min pour une vidéo brute non compressée.
+1. **Copie directe** (par défaut) : la piste audio d'origine est extraite telle quelle, sans ré-encodage — quasi instantané, qualité intacte. Ça suffit pour la grande majorité des clips courts (quelques minutes), car la piste audio seule est presque toujours bien plus légère que la vidéo.
+2. **Compression de secours** (seulement si l'étape 1 donne encore un fichier de plus de 25 Mo) : ré-encodage en mono 16kHz à faible débit — plus lent, mais garantit une taille réduite pour les fichiers longs.
 
-⚠️ **Premier passage** : la compression télécharge un petit moteur (~25-30 Mo, une seule fois, mis en cache ensuite par le navigateur) — fais-le en WiFi la première fois. Les passages suivants sont rapides et fonctionnent hors ligne une fois le moteur en cache.
+Tout se passe **dans le navigateur**, rien n'est envoyé à un serveur pour cette étape.
 
-Si la compression échoue pour une raison quelconque (réseau, format non supporté), l'app retente automatiquement d'envoyer le fichier original — utile si le fichier est déjà petit.
+⚠️ **Premier passage** : le moteur de compression est téléchargé une seule fois (~25-30 Mo), mis en cache ensuite par le navigateur — fais ce premier test en WiFi. Les passages suivants sont rapides.
+
+Si l'extraction échoue pour une raison quelconque (réseau, format non supporté), l'app retente automatiquement d'envoyer le fichier original — utile si le fichier est déjà petit.
 
 ## Limites connues
 
-- **Taille de fichier** : même après compression, le tier gratuit de Groq reste plafonné à 25 Mo. Pour un cours filmé très long (plus de 2h), il faudra encore le raccourcir ou le couper en plusieurs morceaux avant import.
+- **Taille de fichier** : même après extraction/compression, le tier gratuit de Groq reste plafonné à 25 Mo. Pour un cours filmé très long (plus de 1h30-2h), il faudra encore le raccourcir ou le couper en plusieurs morceaux avant import.
 - **Formats acceptés** : mp4, m4a, mp3, wav, webm, ogg, mpeg — donc les vidéos filmées au téléphone (mp4) fonctionnent directement, pas besoin d'extraire l'audio toi-même.
 - **Pas de synchronisation multi-appareils** : les cours sont stockés en local sur l'appareil où tu les crées. Si tu changes de téléphone, tu perds l'historique (sauf si tu exportes en TXT avant).
 - **Quota Groq** : comme pour tes autres projets, le tier gratuit Whisper a des limites de requêtes/jour. Si ça bloque, attends quelques heures ou vérifie ton usage sur console.groq.com.
