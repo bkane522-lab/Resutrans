@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Resutrans</title>
+<meta name="theme-color" content="#0d0d1f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root{
+    --bg:#0b0c1e; --bg2:#12142c; --card:#161832; --card2:#1c1e40;
+    --grad1:#4fc3f7; --grad2:#9c6bff; --grad3:#7c4dff;
+    --text:#eef0fb; --sub:#9498c0; --danger:#3a1e2e; --danger-text:#ff8fae;
+    --border:rgba(255,255,255,0.08);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(160deg,var(--bg),var(--bg2) 60%);
+    color:var(--text); min-height:100vh; padding-bottom:40px;
+  }
+  header{
+    padding:20px 18px 14px; display:flex; align-items:center; gap:12px;
+  }
+  .logo{
+    width:46px;height:46px;border-radius:14px;
+    background:linear-gradient(135deg,var(--grad1),var(--grad3));
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none;
+  }
+  header h1{font-size:19px;margin:0;}
+  header p{margin:2px 0 0;font-size:12px;color:var(--sub);}
+  .settingsBtn{margin-left:auto;background:var(--card);border:1px solid var(--border);color:var(--sub);
+    border-radius:12px;padding:8px 12px;font-size:13px;}
+
+  main{padding:0 16px; max-width:640px; margin:0 auto;}
+
+  .btn{
+    border:none; border-radius:16px; padding:14px 18px; font-weight:700; font-size:15px;
+    cursor:pointer; width:100%; color:#101024;
+  }
+  .btn-grad{background:linear-gradient(90deg,var(--grad1),var(--grad2));}
+  .btn-ghost{background:var(--card); color:var(--text); border:1px solid var(--border);}
+  .btn-danger{background:var(--danger); color:var(--danger-text); border:1px solid rgba(255,143,174,.2);}
+  .btn-sm{padding:10px 14px; font-size:13px; border-radius:12px; width:auto;}
+  .row{display:flex; gap:10px;}
+  .row > .btn{flex:1;}
+
+  .stats{display:flex; gap:10px; margin:14px 0;}
+  .stat{flex:1;background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:12px;text-align:center;}
+  .stat b{font-size:20px;display:block;}
+  .stat span{font-size:11px;color:var(--sub);}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px;margin-bottom:14px;}
+  .courseItem{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);
+    border:1px solid var(--border);border-radius:16px;margin-bottom:10px;cursor:pointer;}
+  .courseItem .dot{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--grad1),var(--grad3));flex:none;}
+  .courseItem .meta{flex:1;min-width:0;}
+  .courseItem .meta b{display:block;font-size:15px;}
+  .courseItem .meta span{font-size:12px;color:var(--sub);}
+  .chev{color:var(--sub);}
+
+  label.field-label{font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;
+    display:block;margin:16px 0 6px;}
+  input[type=text], select, textarea{
+    width:100%;background:#0e0f26;border:1px solid var(--border);border-radius:14px;
+    color:var(--text);padding:13px 14px;font-size:15px;font-family:inherit;
+  }
+  textarea{min-height:110px;resize:vertical;line-height:1.5;}
+  .upload{
+    border:1.5px dashed rgba(124,77,255,.5); border-radius:16px; padding:18px;
+    text-align:center; color:var(--sub); font-size:13px; background:rgba(124,77,255,.06);
+  }
+  .upload b{color:var(--text); display:block; margin-bottom:4px;}
+  input[type=file]{display:none;}
+  .fileInfo{margin-top:10px;font-size:12px;color:var(--grad1); word-break:break-all;}
+  .warn{margin-top:8px;font-size:12px;color:#ffcf6e;}
+
+  .tabs{display:flex;background:var(--card);border-radius:16px;padding:5px;margin:14px 0;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:12px;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer;}
+  .tab.active{background:linear-gradient(90deg,var(--grad1),var(--grad2));color:#101024;}
+
+  .empty{text-align:center;color:var(--sub);font-size:13px;padding:30px 10px;}
+  .backBtn{display:flex;align-items:center;gap:6px;color:var(--sub);font-size:14px;margin-bottom:12px;cursor:pointer;}
+
+  .toast{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:var(--card2);border:1px solid var(--border);color:var(--text);
+    padding:12px 18px;border-radius:14px;font-size:13px;z-index:50;max-width:88vw;text-align:center;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.25);
+    border-top-color:#fff;border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+
+  .hidden{display:none !important;}
+  .modalBg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:flex-end;}
+  .modalCard{background:var(--bg2);width:100%;border-radius:20px 20px 0 0;padding:20px;
+    max-height:85vh;overflow-y:auto;}
+  .closeX{float:right;color:var(--sub);font-size:20px;cursor:pointer;}
+  small.help{color:var(--sub);font-size:12px;display:block;margin-top:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RT</div>
+  <div>
+    <h1>Resutrans</h1>
+    <p>Enregistre. Transcris. Révise.</p>
+  </div>
+  <button class="settingsBtn" onclick="openSettings()">⚙️ Clé</button>
+</header>
+
+<main>
+
+  <!-- LISTE DES COURS -->
+  <div id="view-list">
+    <button class="btn btn-grad" onclick="openNewCourse()">+ Nouveau cours</button>
+
+    <div class="stats">
+      <div class="stat"><b id="statCount">0</b><span>cours</span></div>
+      <div class="stat"><b id="statThemes">0</b><span>thèmes</span></div>
+    </div>
+
+    <div class="card" style="font-size:13px;color:var(--sub);">
+      <b style="color:var(--text)">Important :</b> tes vidéos et transcriptions restent stockées uniquement sur cet appareil (localStorage). Rien n'est envoyé à un serveur, sauf l'appel direct à l'API Groq pour la transcription.
+    </div>
+
+    <div id="courseList"></div>
+    <div id="emptyState" class="empty hidden">Aucun cours pour l'instant. Ajoute ta première vidéo de cours 👆</div>
+  </div>
+
+  <!-- FICHE COURS -->
+  <div id="view-course" class="hidden">
+    <div class="backBtn" onclick="backToList()">← Retour aux cours</div>
+
+    <div class="row" style="margin-bottom:10px;">
+      <button class="btn btn-danger btn-sm" onclick="deleteCourse()">Supprimer</button>
+      <button class="btn btn-grad btn-sm" onclick="saveCourse()">Enregistrer</button>
+    </div>
+
+    <label class="field-label">Titre</label>
+    <input type="text" id="f-title" placeholder="Ex: Cours de kizomba - guidage">
+
+    <label class="field-label">Thème</label>
+    <select id="f-theme">
+      <option>Danse</option>
+      <option>Musique</option>
+      <option>Langues</option>
+      <option>Business / App</option>
+      <option>Autre</option>
+    </select>
+
+    <label class="field-label">Vidéo / audio du cours</label>
+    <label class="upload" for="f-file">
+      <b>📁 Importer vidéo / audio</b>
+      Appuie pour choisir un fichier (mp4, m4a, mp3, wav…)
+    </label>
+    <input type="file" id="f-file" accept="video/*,audio/*" onchange="onFileChosen(event)">
+    <div id="fileInfo" class="fileInfo hidden"></div>
+    <div id="sizeWarn" class="warn hidden">⚠️ Fichier volumineux (&gt;25 Mo). La transcription gratuite Groq peut refuser ce fichier. Essaie de raccourcir la vidéo ou de couper l'audio si ça échoue.</div>
+
+    <div class="row" style="margin-top:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="startTranscription()">🎙️ Transcrire</button>
+      <button class="btn btn-ghost btn-sm" onclick="summarize()">✨ Résumé IA</button>
+    </div>
+
+    <label class="field-label">Transcription</label>
+    <textarea id="f-transcript" placeholder="Colle ici la transcription, ou utilise le bouton Transcrire ci-dessus." style="min-height:160px;"></textarea>
+
+    <label class="field-label">Résumé IA</label>
+    <textarea id="f-summary" placeholder="Le résumé généré par l'IA apparaîtra ici." style="min-height:90px;"></textarea>
+
+    <label class="field-label">Notes personnelles</label>
+    <textarea id="f-notes" placeholder="À revoir : ... / Objectif : ..."></textarea>
+
+    <div class="row" style="margin-top:16px;">
+      <button class="btn btn-ghost btn-sm" onclick="exportTxt()">⬇️ Export TXT</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" class="modalBg hidden">
+  <div class="modalCard">
+    <span class="closeX" onclick="closeSettings()">✕</span>
+    <h3 style="margin-top:0;">Clé API Groq</h3>
+    <p style="color:var(--sub);font-size:13px;">
+      Nécessaire pour la transcription et le résumé IA. Gratuite sur
+      <a href="https://console.groq.com/keys" target="_blank" style="color:var(--grad1);">console.groq.com/keys</a>.
+      Elle est stockée uniquement sur ton téléphone (localStorage), jamais envoyée ailleurs qu'à Groq.
+    </p>
+    <input type="text" id="groqKeyInput" placeholder="gsk_...">
+    <small class="help">⚠️ Comme l'appli appelle Groq directement depuis le navigateur, ta clé est visible dans le code du navigateur. Garde le lien de cette appli privé, ne le partage pas publiquement.</small>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn btn-grad" onclick="saveSettings()">Enregistrer la clé</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+// ---------- STORAGE ----------
+const LS_COURSES = "resutrans_courses";
+const LS_KEY = "resutrans_groq_key";
+
+function loadCourses(){ try{ return JSON.parse(localStorage.getItem(LS_COURSES)) || []; }catch(e){ return []; } }
+function saveCourses(list){ localStorage.setItem(LS_COURSES, JSON.stringify(list)); }
+function getGroqKey(){ return localStorage.getItem(LS_KEY) || ""; }
+
+let courses = loadCourses();
+let currentId = null;
+let currentFile = null; // File object held in memory only during this session
+
+// ---------- TOAST ----------
+let toastTimer = null;
+function toast(msg, sticky){
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  if(!sticky){ toastTimer = setTimeout(()=>t.classList.add('hidden'), 3200); }
+}
+function hideToast(){ document.getElementById('toast').classList.add('hidden'); }
+
+// ---------- SETTINGS ----------
+function openSettings(){
+  document.getElementById('groqKeyInput').value = getGroqKey();
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+function closeSettings(){ document.getElementById('settingsModal').classList.add('hidden'); }
+function saveSettings(){
+  const v = document.getElementById('groqKeyInput').value.trim();
+  localStorage.setItem(LS_KEY, v);
+  closeSettings();
+  toast("Clé enregistrée ✅");
+}
+
+// ---------- LIST VIEW ----------
+function renderList(){
+  const listEl = document.getElementById('courseList');
+  const emptyEl = document.getElementById('emptyState');
+  listEl.innerHTML = "";
+  if(courses.length === 0){ emptyEl.classList.remove('hidden'); }
+  else { emptyEl.classList.add('hidden'); }
+
+  courses.slice().reverse().forEach(c=>{
+    const div = document.createElement('div');
+    div.className = 'courseItem';
+    div.onclick = ()=>openCourse(c.id);
+    div.innerHTML = `
+      <div class="dot"></div>
+      <div class="meta">
+        <b>${escapeHtml(c.title||'Sans titre')}</b>
+        <span>${escapeHtml(c.theme||'—')} · ${c.transcript ? 'Transcrit' : 'Sans transcription'}</span>
+      </div>
+      <div class="chev">›</div>
+    `;
+    listEl.appendChild(div);
+  });
+
+  document.getElementById('statCount').textContent = courses.length;
+  const themes = new Set(courses.map(c=>c.theme).filter(Boolean));
+  document.getElementById('statThemes').textContent = themes.size;
+}
+
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+// ---------- NAVIGATION ----------
+function openNewCourse(){
+  const c = { id: Date.now().toString(36), title:"", theme:"Danse", transcript:"", summary:"", notes:"", fileName:"" };
+  courses.push(c);
+  saveCourses(courses);
+  openCourse(c.id);
+}
+
+function openCourse(id){
+  currentId = id;
+  currentFile = null;
+  const c = courses.find(x=>x.id===id);
+  document.getElementById('f-title').value = c.title || "";
+  document.getElementById('f-theme').value = c.theme || "Danse";
+  document.getElementById('f-transcript').value = c.transcript || "";
+  document.getElementById('f-summary').value = c.summary || "";
+  document.getElementById('f-notes').value = c.notes || "";
+  const fi = document.getElementById('fileInfo');
+  if(c.fileName){ fi.textContent = "Fichier précédent : " + c.fileName + " (à réimporter pour re-transcrire)"; fi.classList.remove('hidden'); }
+  else { fi.classList.add('hidden'); }
+  document.getElementById('sizeWarn').classList.add('hidden');
+  document.getElementById('f-file').value = "";
+
+  document.getElementById('view-list').classList.add('hidden');
+  document.getElementById('view-course').classList.remove('hidden');
+}
+
+function backToList(){
+  saveCourse(true);
+  document.getElementById('view-course').classList.add('hidden');
+  document.getElementById('view-list').classList.remove('hidden');
+  renderList();
+}
+
+function saveCourse(silent){
+  const c = courses.find(x=>x.id===currentId);
+  if(!c) return;
+  c.title = document.getElementById('f-title').value;
+  c.theme = document.getElementById('f-theme').value;
+  c.transcript = document.getElementById('f-transcript').value;
+  c.summary = document.getElementById('f-summary').value;
+  c.notes = document.getElementById('f-notes').value;
+  saveCourses(courses);
+  if(!silent) toast("Cours enregistré ✅");
+}
+
+function deleteCourse(){
+  if(!confirm("Supprimer ce cours définitivement ?")) return;
+  courses = courses.filter(x=>x.id!==currentId);
+  saveCourses(courses);
+  document.getElementById('view-course').classList.add('hidden');
+  document.getElementById('view-list').classList.remove('hidden');
+  renderList();
+}
+
+// ---------- FILE HANDLING ----------
+function onFileChosen(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  currentFile = file;
+  const c = courses.find(x=>x.id===currentId);
+  c.fileName = file.name;
+  saveCourses(courses);
+
+  const mb = (file.size/1024/1024).toFixed(1);
+  const fi = document.getElementById('fileInfo');
+  fi.textContent = `Sélectionné : ${file.name} — ${mb} Mo`;
+  fi.classList.remove('hidden');
+
+  const warn = document.getElementById('sizeWarn');
+  if(file.size > 25*1024*1024){ warn.classList.remove('hidden'); }
+  else { warn.classList.add('hidden'); }
+}
+
+// ---------- TRANSCRIPTION (Groq Whisper, direct from browser) ----------
+async function startTranscription(){
+  const key = getGroqKey();
+  if(!key){ toast("Ajoute d'abord ta clé Groq (⚙️ en haut à droite)"); return; }
+  if(!currentFile){ toast("Choisis d'abord un fichier vidéo/audio"); return; }
+
+  toast('<span class="spin"></span> Transcription en cours… (peut prendre 1-2 min)', true);
+
+  try{
+    const form = new FormData();
+    form.append('file', currentFile);
+    form.append('model', 'whisper-large-v3-turbo');
+    form.append('language', 'fr');
+    form.append('response_format', 'text');
+
+    const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + key },
+      body: form
+    });
+
+    if(!res.ok){
+      const errText = await res.text();
+      throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0,200));
+    }
+
+    const text = await res.text();
+    const ta = document.getElementById('f-transcript');
+    ta.value = (ta.value ? ta.value + "\n\n" : "") + text.trim();
+    saveCourse(true);
+    hideToast();
+    toast("Transcription terminée ✅");
+  }catch(err){
+    hideToast();
+    console.error(err);
+    toast("❌ Échec transcription : " + err.message.slice(0,140));
+  }
+}
+
+// ---------- RÉSUMÉ IA (Groq chat completion) ----------
+async function summarize(){
+  const key = getGroqKey();
+  const transcript = document.getElementById('f-transcript').value.trim();
+  if(!key){ toast("Ajoute d'abord ta clé Groq (⚙️)"); return; }
+  if(!transcript){ toast("Ajoute une transcription avant de résumer"); return; }
+
+  toast('<span class="spin"></span> Génération du résumé…', true);
+  try{
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: 'Tu résumes des transcriptions de cours (danse, musique, langues, etc.) en français. Donne : 1) un résumé clair en 3-5 phrases, 2) une liste à puces des points clés / corrections mentionnées, 3) si pertinent, un objectif pour la prochaine séance. Sois concis et concret.' },
+          { role: 'user', content: transcript.slice(0, 15000) }
+        ],
+        temperature: 0.4
+      })
+    });
+    if(!res.ok){
+      const errText = await res.text();
+      throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0,200));
+    }
+    const data = await res.json();
+    const summary = data.choices?.[0]?.message?.content?.trim() || "";
+    document.getElementById('f-summary').value = summary;
+    saveCourse(true);
+    hideToast();
+    toast("Résumé généré ✅");
+  }catch(err){
+    hideToast();
+    console.error(err);
+    toast("❌ Échec résumé : " + err.message.slice(0,140));
+  }
+}
+
+// ---------- EXPORT ----------
+function exportTxt(){
+  const c = courses.find(x=>x.id===currentId);
+  const title = document.getElementById('f-title').value || "cours";
+  const content = `${title}\nThème : ${document.getElementById('f-theme').value}\n\n--- TRANSCRIPTION ---\n${document.getElementById('f-transcript').value}\n\n--- RÉSUMÉ IA ---\n${document.getElementById('f-summary').value}\n\n--- NOTES PERSONNELLES ---\n${document.getElementById('f-notes').value}\n`;
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = title.replace(/[^a-z0-9]+/gi,'_') + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- SERVICE WORKER ----------
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+// ---------- INIT ----------
+renderList();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "Resutrans",
+  "short_name": "Resutrans",
+  "description": "Transcris et résume tes vidéos de cours directement depuis ton téléphone.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b0c1e",
+  "theme_color": "#0b0c1e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
