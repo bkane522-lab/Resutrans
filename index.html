@@ -200,16 +200,17 @@
     </div>
 
     <label class="field-label">Transcription</label>
-    <textarea id="f-transcript" placeholder="Colle ici la transcription, ou utilise le bouton Transcrire ci-dessus." style="min-height:160px;"></textarea>
+    <textarea id="f-transcript" placeholder="Colle ici la transcription, ou utilise le bouton Transcrire ci-dessus." style="min-height:340px;"></textarea>
 
     <label class="field-label">Résumé IA</label>
-    <textarea id="f-summary" placeholder="Le résumé généré par l'IA apparaîtra ici." style="min-height:90px;"></textarea>
+    <textarea id="f-summary" placeholder="Le résumé généré par l'IA apparaîtra ici." style="min-height:220px;"></textarea>
 
     <label class="field-label">Notes personnelles</label>
     <textarea id="f-notes" placeholder="À revoir : ... / Objectif : ..."></textarea>
 
     <div class="row" style="margin-top:16px;">
       <button class="btn btn-ghost btn-sm" onclick="exportTxt()">⬇️ Export TXT</button>
+      <button class="btn btn-ghost btn-sm" onclick="shareTxt()">📤 Partager</button>
     </div>
   </div>
 
@@ -243,6 +244,8 @@
       <b style="display:block;margin-bottom:8px;">✅ Audio extrait</b>
       <div id="x-resultInfo" style="font-size:13px;color:var(--sub);margin-bottom:12px;"></div>
       <a id="x-downloadLink" class="btn btn-grad" style="display:block;text-align:center;text-decoration:none;">⬇️ Télécharger l'audio</a>
+      <button class="btn btn-grad" style="margin-top:10px;" onclick="useExtractedAudioForCourse()">🎙️ Utiliser pour transcrire (sans télécharger)</button>
+      <button id="x-shareBtn" class="btn btn-ghost" style="margin-top:10px;" onclick="shareExtractedAudio()">📤 Partager</button>
       <small class="help">Enregistre-le, puis importe-le dans un cours (bouton "Importer vidéo / audio") pour lancer la transcription.</small>
     </div>
   </div>
@@ -377,6 +380,8 @@ function backToList(){
 // ---------- OUTIL SÉPARÉ : EXTRACTION AUDIO SEULE ----------
 let extractFile = null;
 let extractObjectUrl = null;
+let lastExtractedBlob = null;
+let lastExtractedName = null;
 
 function openExtractTool(){
   extractFile = null;
@@ -405,6 +410,48 @@ function onExtractFileChosen(e){
   document.getElementById('x-result').classList.add('hidden');
 }
 
+function useExtractedAudioForCourse(){
+  if(!lastExtractedBlob){ toast("Extrais d'abord l'audio"); return; }
+
+  const guessedTitle = (extractFile && extractFile.name ? extractFile.name.replace(/\.[^.]+$/, '') : '') || '';
+  const c = { id: Date.now().toString(36), title: guessedTitle, theme: "Kizomba", transcript: "", summary: "", notes: "", fileName: lastExtractedName };
+  courses.push(c);
+  saveCourses(courses);
+
+  currentId = c.id;
+  currentFile = new File([lastExtractedBlob], lastExtractedName || 'audio.webm', { type: lastExtractedBlob.type });
+
+  document.getElementById('f-title').value = c.title;
+  document.getElementById('f-theme').value = c.theme;
+  document.getElementById('f-transcript').value = "";
+  document.getElementById('f-summary').value = "";
+  document.getElementById('f-notes').value = "";
+  const fi = document.getElementById('fileInfo');
+  const mb = (currentFile.size/1024/1024).toFixed(1);
+  fi.textContent = `Audio prêt (extrait juste avant) : ${currentFile.name} — ${mb} Mo`;
+  fi.classList.remove('hidden');
+  document.getElementById('sizeWarn').classList.add('hidden');
+  document.getElementById('f-file').value = "";
+
+  document.getElementById('view-extract').classList.add('hidden');
+  document.getElementById('view-course').classList.remove('hidden');
+  toast("Audio prêt — appuie sur Transcrire ✅");
+}
+
+async function shareExtractedAudio(){
+  if(!lastExtractedBlob){ toast("Extrais d'abord l'audio"); return; }
+  const file = new File([lastExtractedBlob], lastExtractedName || 'audio.webm', { type: lastExtractedBlob.type });
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    try{
+      await navigator.share({ files: [file], title: lastExtractedName });
+    }catch(err){
+      if(err.name !== 'AbortError') toast("❌ Partage impossible : " + (err.message || '').slice(0,100));
+    }
+  } else {
+    toast("Le partage direct n'est pas supporté sur ce navigateur — utilise Télécharger puis partage depuis tes fichiers.", false, 5000);
+  }
+}
+
 async function runStandaloneExtraction(){
   if(!extractFile){ toast("Choisis d'abord une vidéo"); return; }
   try{
@@ -417,6 +464,9 @@ async function runStandaloneExtraction(){
     extractObjectUrl = URL.createObjectURL(audioBlob);
 
     const baseName = (extractFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.webm';
+    lastExtractedBlob = audioBlob;
+    lastExtractedName = baseName;
+
     const link = document.getElementById('x-downloadLink');
     link.href = extractObjectUrl;
     link.download = baseName;
@@ -734,10 +784,14 @@ function onImportBackup(e){
   e.target.value = '';
 }
 
-function exportTxt(){
-  const c = courses.find(x=>x.id===currentId);
+function buildCourseTxtContent(){
   const title = document.getElementById('f-title').value || "cours";
   const content = `${title}\nThème : ${document.getElementById('f-theme').value}\n\n--- TRANSCRIPTION ---\n${document.getElementById('f-transcript').value}\n\n--- RÉSUMÉ IA ---\n${document.getElementById('f-summary').value}\n\n--- NOTES PERSONNELLES ---\n${document.getElementById('f-notes').value}\n`;
+  return { title, content };
+}
+
+function exportTxt(){
+  const { title, content } = buildCourseTxtContent();
   // Le BOM UTF-8 (\uFEFF) force les visionneuses de fichiers à reconnaître l'encodage
   // correctement — sans ça, les accents s'affichent mal sur certains lecteurs Android.
   const blob = new Blob(['\uFEFF' + content], { type: 'text/plain;charset=utf-8' });
@@ -749,6 +803,21 @@ function exportTxt(){
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+async function shareTxt(){
+  const { title, content } = buildCourseTxtContent();
+  const file = new File(['\uFEFF' + content], sanitizeFilename(title) + '.txt', { type: 'text/plain' });
+
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    try{
+      await navigator.share({ files: [file], title: title });
+    }catch(err){
+      if(err.name !== 'AbortError') toast("❌ Partage impossible : " + (err.message || '').slice(0,100));
+    }
+  } else {
+    toast("Le partage direct n'est pas supporté sur ce navigateur — utilise Export TXT puis partage depuis tes fichiers.", false, 5000);
+  }
 }
 
 // ---------- SERVICE WORKER ----------
