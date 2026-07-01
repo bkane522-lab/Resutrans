@@ -355,87 +355,70 @@ function onFileChosen(e){
 
 // ---------- EXTRACTION AUDIO (100% native navigateur, sans téléchargement externe) ----------
 // Utilise l'API Web Audio (déjà intégrée à tous les navigateurs) pour décoder la piste audio
-// d'une vidéo/fichier, la ré-échantillonner en mono 16kHz, puis l'encoder en WAV.
-// Aucune librairie externe, aucun worker cross-origin : robuste et rapide.
-function withTimeout(promise, ms, message){
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), ms);
+// d'une vidéo/fichier. Lit la vidéo progressivement (comme une lecture normale, mais
+// muette, en arrière-plan) et enregistre uniquement l'audio au fur et à mesure.
+// Ne charge JAMAIS le fichier entier en mémoire d'un coup — fonctionne donc même
+// pour des fichiers très volumineux (300+ Mo), contrairement à un décodage en un bloc.
+async function extractAudioViaPlayback(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.src = url;
+    video.muted = false;      // doit "jouer" pour que le flux audio existe
+    video.volume = 0;         // filet de sécurité : rien n'est audible dans tous les cas
+    video.playsInline = true;
+    video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;';
+    document.body.appendChild(video);
+
+    let audioCtx, recorder, timeoutId;
+    const chunks = [];
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      try{ video.pause(); }catch(e){}
+      video.remove();
+      URL.revokeObjectURL(url);
+      if(audioCtx) audioCtx.close().catch(()=>{});
+    };
+
+    video.onerror = () => { cleanup(); reject(new Error("Impossible de lire ce fichier vidéo pour en extraire l'audio.")); };
+
+    video.onloadedmetadata = () => {
+      try{
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaElementSource(video);
+        const dest = audioCtx.createMediaStreamDestination();
+        source.connect(dest); // routé uniquement vers l'enregistreur, jamais vers les haut-parleurs
+
+        recorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 });
+        recorder.ondataavailable = (e) => { if(e.data && e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = () => { cleanup(); resolve(new Blob(chunks, { type: 'audio/webm' })); };
+        recorder.onerror = (e) => { cleanup(); reject(e.error || new Error('Erreur MediaRecorder')); };
+
+        // Sécurité anti-blocage : si la durée est corrompue/infinie (fréquent sur certains
+        // enregistrements d'écran non finalisés), on plafonne à 20 min max.
+        const durationSec = isFinite(video.duration) && video.duration > 0 ? video.duration : (20 * 60);
+        const capSec = Math.min(durationSec, 20 * 60) + 5;
+        timeoutId = setTimeout(() => { if(recorder.state === 'recording') recorder.stop(); }, capSec * 1000);
+
+        video.ontimeupdate = () => {
+          if(isFinite(video.duration) && video.duration > 0){
+            const pct = Math.round((video.currentTime / video.duration) * 100);
+            toast(`<span class="spin"></span> Extraction audio… ${pct}%`, true);
+          } else {
+            toast(`<span class="spin"></span> Extraction audio… ${Math.round(video.currentTime)}s`, true);
+          }
+        };
+        video.onended = () => { if(recorder.state === 'recording') recorder.stop(); };
+
+        recorder.start();
+        video.play().catch((err) => { cleanup(); reject(err); });
+      }catch(err){
+        cleanup();
+        reject(err);
+      }
+    };
   });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-async function extractAudioWav(file){
-  toast('<span class="spin"></span> Extraction de l\'audio…', true);
-
-  const arrayBuffer = await file.arrayBuffer();
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  const tempCtx = new AudioCtx();
-  let decoded;
-  try{
-    decoded = await withTimeout(
-      tempCtx.decodeAudioData(arrayBuffer),
-      45000,
-      "Le décodage audio a dépassé 45s — le fichier a probablement des métadonnées de durée corrompues (fréquent avec certains enregistreurs d'écran Android)."
-    );
-  } finally {
-    tempCtx.close().catch(()=>{});
-  }
-
-  // Sécurité : si la durée détectée est anormalement longue (métadonnées corrompues),
-  // on la plafonne pour éviter de tenter de traiter des heures de silence/bruit.
-  const MAX_DURATION_SEC = 20 * 60;
-  const duration = Math.min(decoded.duration, MAX_DURATION_SEC);
-  if(decoded.duration > MAX_DURATION_SEC){
-    console.warn('Durée détectée anormale (', decoded.duration, 's), plafonnée à', MAX_DURATION_SEC, 's');
-  }
-
-  const targetRate = 16000; // même fréquence que celle utilisée en interne par Whisper
-  const offline = new OfflineAudioContext(1, Math.ceil(duration * targetRate), targetRate);
-  const src = offline.createBufferSource();
-  src.buffer = decoded;
-  src.connect(offline.destination);
-  src.start(0);
-  const rendered = await withTimeout(
-    offline.startRendering(),
-    45000,
-    "Le traitement audio a dépassé 45s."
-  );
-
-  return encodeWav(rendered);
-}
-
-function encodeWav(audioBuffer){
-  const sampleRate = audioBuffer.sampleRate;
-  const samples = audioBuffer.getChannelData(0);
-  const dataSize = samples.length * 2; // 16-bit
-  const buffer = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(buffer);
-
-  const writeString = (offset, str) => { for(let i=0;i<str.length;i++) view.setUint8(offset+i, str.charCodeAt(i)); };
-
-  writeString(0, 'RIFF');
-  view.setUint32(4, 36 + dataSize, true);
-  writeString(8, 'WAVE');
-  writeString(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);   // PCM
-  view.setUint16(22, 1, true);   // mono
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true); // byte rate
-  view.setUint16(32, 2, true);   // block align
-  view.setUint16(34, 16, true);  // bits per sample
-  writeString(36, 'data');
-  view.setUint32(40, dataSize, true);
-
-  let offset = 44;
-  for(let i=0;i<samples.length;i++){
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    offset += 2;
-  }
-
-  return new Blob([buffer], { type: 'audio/wav' });
 }
 
 // ---------- TRANSCRIPTION (Groq Whisper, direct from browser) ----------
