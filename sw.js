@@ -1,26 +1,58 @@
-const CACHE = "resutrans-v4";
-const SHELL = ["./index.html", "./manifest.json", "./icon.svg", "./icon-192.png", "./icon-512.png", "./icon-192-maskable.png", "./icon-512-maskable.png"];
+const CACHE = "resutrans-v11-audio-final";
+const SHELL = [
+  "./index.html",
+  "./manifest.json",
+  "./icon.svg",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./icon-192-maskable.png",
+  "./icon-512-maskable.png"
+];
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL))
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
-  );
-});
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if(request.method !== "GET") return;
+  const url = new URL(request.url);
+  if(url.hostname.includes("groq.com")) return;
 
-// Only cache the app shell. Never intercept calls to api.groq.com.
-self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
-  if (url.origin.includes("groq.com")) return;
+  // Page principale : réseau d'abord pour éviter de rester bloqué sur une vieille version.
+  if(request.mode === "navigate"){
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put("./index.html", copy));
+          return response;
+        })
+        .catch(() => caches.match("./index.html"))
+    );
+    return;
+  }
 
-  e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+  // Assets : cache d'abord, puis réseau.
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if(cached) return cached;
+      return fetch(request).then((response) => {
+        if(response && response.ok && url.origin === self.location.origin){
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      });
+    })
   );
 });

@@ -99,6 +99,21 @@
     border-top-color:#fff;border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-2px;margin-right:6px;}
   @keyframes sp{to{transform:rotate(360deg);}}
 
+
+  .heroNote{margin:12px 0 14px;background:linear-gradient(135deg,rgba(255,182,72,.12),rgba(255,110,199,.08));border:1px solid rgba(255,182,72,.22);border-radius:18px;padding:14px;font-size:13px;color:var(--sub);line-height:1.45;}
+  .heroNote b{color:var(--text);}
+  .heavyBtn{
+    margin-top:10px;background:transparent;color:#ffcf6e;border:1.5px solid var(--grad1);
+    border-radius:16px;padding:14px 18px;font-weight:800;font-size:14px;width:100%;
+    box-shadow:0 4px 18px rgba(255,182,72,.08);
+  }
+  .heavyBtn small{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-top:4px;line-height:1.35;}
+  .progressBox{margin-top:12px;background:rgba(255,182,72,.08);border:1px solid rgba(255,182,72,.35);border-radius:14px;padding:12px;color:#ffd991;font-size:13px;line-height:1.38;}
+  .progressBar{height:8px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden;margin-top:9px;}
+  .progressFill{height:100%;width:0%;background:linear-gradient(90deg,var(--grad1),var(--grad2));transition:width .25s ease;}
+  .tipBox{margin-top:10px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:14px;padding:12px;color:var(--sub);font-size:12px;line-height:1.45;}
+  .miniStatus{font-size:11px;color:#ffcf6e;margin-top:5px;display:block;}
+
   .hidden{display:none !important;}
   .modalBg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:flex-end;}
   .modalCard{background:var(--bg2);width:100%;border-radius:20px 20px 0 0;padding:20px;
@@ -113,7 +128,7 @@
   <div class="logo">RT</div>
   <div>
     <h1>Resutrans</h1>
-    <p>Enregistre. Transcris. Révise.</p>
+    <p>Transcris tes cours sans abonnement.</p>
   </div>
   <button class="settingsBtn" onclick="openSettings()">⚙️ Clé</button>
 </header>
@@ -131,7 +146,9 @@
     </div>
 
     <button class="btn btn-grad" onclick="openNewCourse()">+ Nouveau cours</button>
-    <button class="btn btn-ghost" style="margin-top:10px;" onclick="openExtractTool()">🎵 Extraire l'audio d'une vidéo (outil séparé)</button>
+    <button class="heavyBtn" onclick="openExtractTool()">🎵 Mode vidéo lourde / Android<small>À utiliser si une vidéo ScreenRecorder ou téléphone bloque.</small></button>
+
+    <div class="heroNote"><b>Objectif :</b> importer un audio ou une vidéo, extraire l'audio si nécessaire, puis transcrire avec ta clé Groq. Pas d'abonnement externe.</div>
 
     <div class="stats">
       <div class="stat"><b id="statCount">0</b><span>cours</span></div>
@@ -194,6 +211,7 @@
     <input type="file" id="f-file" accept="video/*,audio/*" onchange="onFileChosen(event)">
     <div id="fileInfo" class="fileInfo hidden"></div>
     <div id="sizeWarn" class="warn hidden"></div>
+    <div id="progressBox" class="progressBox hidden"><div id="progressText">Préparation…</div><div class="progressBar"><div id="progressFill" class="progressFill"></div></div></div>
 
     <div class="row" style="margin-top:12px;">
       <button class="btn btn-ghost btn-sm" onclick="startTranscription()">🎙️ Transcrire</button>
@@ -220,12 +238,11 @@
     <div class="backBtn" onclick="backFromExtract()">← Retour aux cours</div>
 
     <div class="card">
-      <b style="display:block;margin-bottom:6px;">🎵 Extraire l'audio d'une vidéo</b>
+      <b style="display:block;margin-bottom:6px;">🎵 Mode vidéo lourde / Android</b>
       <span style="font-size:13px;color:var(--sub);">
-        Outil indépendant : importe une vidéo, récupère juste le fichier audio (léger) en téléchargement.
-        Tu pourras ensuite l'importer dans un cours pour le transcrire — utile si l'extraction automatique
-        échoue sur un fichier particulier, ou pour tester séparément.
+        Outil indépendant : importe une vidéo lourde ou un enregistrement d'écran. L'app essaie de créer un audio léger que tu peux télécharger ou utiliser directement pour transcrire.
       </span>
+      <div class="tipBox"><b style="color:var(--text);">Conseil :</b> pour un résultat plus fiable, garde Chrome ouvert, écran allumé, et évite de changer d'application pendant l'extraction.</div>
     </div>
 
     <label class="field-label">Vidéo à traiter</label>
@@ -236,6 +253,7 @@
     </label>
     <input type="file" id="x-file" accept="video/*" onchange="onExtractFileChosen(event)">
     <div id="x-fileInfo" class="fileInfo hidden"></div>
+    <div id="xProgressBox" class="progressBox hidden"><div id="xProgressText">Préparation…</div><div class="progressBar"><div id="xProgressFill" class="progressFill"></div></div></div>
 
     <div class="row" style="margin-top:14px;">
       <button class="btn btn-grad" onclick="runStandaloneExtraction()">Extraire l'audio</button>
@@ -259,9 +277,9 @@
     <span class="closeX" onclick="closeSettings()">✕</span>
     <h3 style="margin-top:0;">Clé API Groq</h3>
     <p style="color:var(--sub);font-size:13px;">
-      Nécessaire pour la transcription et le résumé IA. Gratuite sur
+      Nécessaire pour la transcription et le résumé IA. À récupérer sur
       <a href="https://console.groq.com/keys" target="_blank" style="color:var(--grad1);">console.groq.com/keys</a>.
-      Elle est stockée uniquement sur ton téléphone (localStorage), jamais envoyée ailleurs qu'à Groq.
+      Elle est stockée uniquement sur ton téléphone (localStorage), puis utilisée uniquement pour appeler Groq.
     </p>
     <input type="text" id="groqKeyInput" placeholder="gsk_...">
     <small class="help">⚠️ Comme l'appli appelle Groq directement depuis le navigateur, ta clé est visible dans le code du navigateur. Garde le lien de cette appli privé, ne le partage pas publiquement.</small>
@@ -285,8 +303,78 @@ function getGroqKey(){ return localStorage.getItem(LS_KEY) || ""; }
 let courses = loadCourses();
 let currentId = null;
 let currentFile = null; // File object held in memory only during this session
-const COMPRESS_THRESHOLD = 3 * 1024 * 1024; // 3 Mo : au-delà, on extrait l'audio avant l'envoi
-const GROQ_LIMIT = 25 * 1024 * 1024; // 25 Mo : limite tier gratuit Groq
+const COMPRESS_THRESHOLD = 22 * 1024 * 1024; // seuil de sécurité : au-delà, on prépare un audio léger
+const GROQ_LIMIT = 25 * 1024 * 1024; // 25 Mo : limite courante par fichier pour l'API audio Groq
+const MAX_PROGRESSIVE_SECONDS = 90 * 60; // sécurité mobile : environ 1h30 par import
+
+function isProbablyVideo(file){
+  const type = file.type || '';
+  if(type.startsWith('audio/')) return false;
+  if(type.startsWith('video/')) return true;
+  return /\.(mp4|mov|m4v|mkv|avi)$/i.test(file.name || '');
+}
+function isProbablyAudio(file){
+  return (file.type || '').startsWith('audio/') || /\.(mp3|m4a|wav|webm|ogg|mpeg|mpga|aac|flac)$/i.test(file.name || '');
+}
+function formatBytes(bytes){
+  const mb = bytes / 1024 / 1024;
+  return mb >= 1 ? mb.toFixed(1) + ' Mo' : Math.max(1, Math.round(bytes/1024)) + ' Ko';
+}
+function formatTime(sec){
+  sec = Math.max(0, Math.floor(sec || 0));
+  const m = Math.floor(sec/60), s = String(sec%60).padStart(2,'0');
+  return m + ':' + s;
+}
+function todayLabel(date){
+  try{return new Intl.DateTimeFormat('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' }).format(date || new Date());}
+  catch(e){ return new Date().toISOString().slice(0,10); }
+}
+function autoCourseTitle(c){
+  if(c && c.title && c.title.trim()) return c.title.trim();
+  if(c && c.fileName){ return c.fileName.replace(/\.[^.]+$/, '').replace(/[-_]+/g,' ').trim() || 'Cours du ' + todayLabel(new Date(c.createdAt || Date.now())); }
+  return 'Cours du ' + todayLabel(new Date((c && c.createdAt) || Date.now()));
+}
+function setProgress(target, html, pct){
+  const prefix = target || '';
+  const box = document.getElementById(prefix ? prefix+'ProgressBox' : 'progressBox');
+  const textEl = document.getElementById(prefix ? prefix+'ProgressText' : 'progressText');
+  const fill = document.getElementById(prefix ? prefix+'ProgressFill' : 'progressFill');
+  if(!box || !textEl || !fill) return;
+  textEl.innerHTML = html;
+  fill.style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
+  box.classList.remove('hidden');
+}
+function hideProgress(target){
+  const prefix = target || '';
+  const box = document.getElementById(prefix ? prefix+'ProgressBox' : 'progressBox');
+  const fill = document.getElementById(prefix ? prefix+'ProgressFill' : 'progressFill');
+  if(fill) fill.style.width = '0%';
+  if(box) box.classList.add('hidden');
+}
+function pickRecorderMime(){
+  const candidates = ['audio/webm;codecs=opus','audio/webm','audio/mp4;codecs=mp4a.40.2','audio/mp4'];
+  if(!window.MediaRecorder) return '';
+  return candidates.find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+}
+function friendlyError(err){
+  const raw = String((err && (err.message || err.name)) || err || '').trim();
+  if(/decode audio data|Unable to decode audio data/i.test(raw)){
+    return "Cette vidéo n'est pas lisible directement par le navigateur. Essaie une vidéo filmée avec la caméra, ou réencode la vidéo avant import.";
+  }
+  if(/duration|métadonnées|metadata|interrompue|corrupt|infinite/i.test(raw)){
+    return "La durée ou les métadonnées de cette vidéo semblent incorrectes. C'est fréquent avec certains enregistrements d'écran Android. Essaie de couper/réencoder la vidéo, puis réimporte-la.";
+  }
+  if(/play\(\)|user|permission|NotAllowedError/i.test(raw)){
+    return "Le navigateur a refusé la lecture interne. Relance l'action en gardant l'onglet ouvert, idéalement dans Chrome.";
+  }
+  if(/MediaRecorder|mime|support/i.test(raw)){
+    return "Ce navigateur ne supporte pas l'extraction audio nécessaire. Ouvre l'app dans Chrome Android.";
+  }
+  if(/HTTP 401|401/.test(raw)) return "Clé Groq refusée. Vérifie la clé dans ⚙️ Clé.";
+  if(/HTTP 413|413|too large|25/i.test(raw)) return "Fichier trop lourd pour l'API audio. Utilise un fichier plus court ou extrais un audio plus léger.";
+  if(/Failed to fetch|NetworkError|Load failed/i.test(raw)) return "Connexion ou appel API bloqué. Vérifie internet, puis réessaie.";
+  return raw ? raw.slice(0,180) : "Erreur inconnue.";
+}
 
 // ---------- TOAST ----------
 let toastTimer = null;
@@ -327,8 +415,8 @@ function renderList(){
     div.innerHTML = `
       <div class="dot"></div>
       <div class="meta">
-        <b>${escapeHtml(c.title||'Sans titre')}</b>
-        <span>${escapeHtml(c.theme||'—')} · ${c.transcript ? 'Transcrit' : 'Sans transcription'}</span>
+        <b>${escapeHtml(autoCourseTitle(c))}</b>
+        <span>${escapeHtml(c.theme||'—')} · ${c.transcript ? 'Transcrit' : (c.fileName ? 'Fichier prêt · Non transcrit' : 'Sans transcription')}</span>
       </div>
       <div class="chev">›</div>
     `;
@@ -346,7 +434,7 @@ function escapeHtml(s){
 
 // ---------- NAVIGATION ----------
 function openNewCourse(){
-  const c = { id: Date.now().toString(36), title:"", theme:"Kizomba", transcript:"", summary:"", notes:"", fileName:"" };
+  const c = { id: Date.now().toString(36), createdAt: new Date().toISOString(), title:"", theme:"Kizomba", transcript:"", summary:"", notes:"", fileName:"" };
   courses.push(c);
   saveCourses(courses);
   openCourse(c.id);
@@ -362,9 +450,10 @@ function openCourse(id){
   document.getElementById('f-summary').value = c.summary || "";
   document.getElementById('f-notes').value = c.notes || "";
   const fi = document.getElementById('fileInfo');
-  if(c.fileName){ fi.textContent = "Fichier précédent : " + c.fileName + " (à réimporter pour re-transcrire)"; fi.classList.remove('hidden'); }
+  if(c.fileName){ fi.textContent = "Fichier précédent : " + c.fileName + " (à réimporter si tu veux relancer la transcription)"; fi.classList.remove('hidden'); }
   else { fi.classList.add('hidden'); }
   document.getElementById('sizeWarn').classList.add('hidden');
+  hideProgress('');
   document.getElementById('f-file').value = "";
 
   document.getElementById('view-list').classList.add('hidden');
@@ -404,18 +493,18 @@ function onExtractFileChosen(e){
   const file = e.target.files[0];
   if(!file) return;
   extractFile = file;
-  const mb = (file.size/1024/1024).toFixed(1);
   const fi = document.getElementById('x-fileInfo');
-  fi.textContent = `Sélectionné : ${file.name} — ${mb} Mo`;
+  fi.textContent = `Sélectionné : ${file.name} — ${formatBytes(file.size)}`;
   fi.classList.remove('hidden');
   document.getElementById('x-result').classList.add('hidden');
+  hideProgress('x');
 }
 
 function useExtractedAudioForCourse(){
   if(!lastExtractedBlob){ toast("Extrais d'abord l'audio"); return; }
 
   const guessedTitle = (extractFile && extractFile.name ? extractFile.name.replace(/\.[^.]+$/, '') : '') || '';
-  const c = { id: Date.now().toString(36), title: guessedTitle, theme: "Kizomba", transcript: "", summary: "", notes: "", fileName: lastExtractedName };
+  const c = { id: Date.now().toString(36), createdAt: new Date().toISOString(), title: guessedTitle, theme: "Kizomba", transcript: "", summary: "", notes: "", fileName: lastExtractedName };
   courses.push(c);
   saveCourses(courses);
 
@@ -456,38 +545,40 @@ async function shareExtractedAudio(){
 async function runStandaloneExtraction(){
   if(!extractFile){ toast("Choisis d'abord une vidéo"); return; }
   try{
-    const audioBlob = await extractAudioViaPlayback(extractFile);
+    const extracted = await extractAudioProgressive(extractFile, 'x');
+    setProgress('x', 'Étape 3/3 : audio prêt ✅', 100);
     hideToast();
-    const beforeMb = (extractFile.size/1024/1024).toFixed(1);
-    const afterMb = (audioBlob.size/1024/1024).toFixed(1);
+    const before = formatBytes(extractFile.size);
+    const after = formatBytes(extracted.blob.size);
 
     if(extractObjectUrl) URL.revokeObjectURL(extractObjectUrl);
-    extractObjectUrl = URL.createObjectURL(audioBlob);
+    extractObjectUrl = URL.createObjectURL(extracted.blob);
 
-    const baseName = (extractFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.webm';
-    lastExtractedBlob = audioBlob;
+    const baseName = (extractFile.name.replace(/\.[^.]+$/, '') || 'audio') + '-audio.' + extracted.ext;
+    lastExtractedBlob = extracted.blob;
     lastExtractedName = baseName;
 
     const link = document.getElementById('x-downloadLink');
     link.href = extractObjectUrl;
     link.download = baseName;
 
-    document.getElementById('x-resultInfo').textContent = `${beforeMb} Mo → ${afterMb} Mo (${baseName})`;
+    document.getElementById('x-resultInfo').textContent = `${before} → ${after} (${baseName})`;
     document.getElementById('x-result').classList.remove('hidden');
     toast("Extraction terminée ✅");
   }catch(err){
     hideToast();
+    hideProgress('x');
     console.error('Extraction échouée', err);
-    const detail = (err && (err.message || err.toString())) || 'erreur inconnue';
-    toast(`❌ Extraction échouée : ${detail.slice(0,160)}`, false, 8000);
+    toast(`❌ ${friendlyError(err)}`, false, 9000);
   }
 }
 
 function saveCourse(silent){
   const c = courses.find(x=>x.id===currentId);
   if(!c) return;
-  c.title = document.getElementById('f-title').value;
-  c.theme = document.getElementById('f-theme').value;
+  if(!c.createdAt) c.createdAt = new Date().toISOString();
+  c.title = document.getElementById('f-title').value.trim();
+  c.theme = document.getElementById('f-theme').value.trim() || 'Kizomba';
   c.transcript = document.getElementById('f-transcript').value;
   c.summary = document.getElementById('f-summary').value;
   c.notes = document.getElementById('f-notes').value;
@@ -513,101 +604,133 @@ function onFileChosen(e){
   c.fileName = file.name;
   saveCourses(courses);
 
-  const mb = (file.size/1024/1024).toFixed(1);
+  if(!c.createdAt) c.createdAt = new Date().toISOString();
   const fi = document.getElementById('fileInfo');
-  fi.textContent = `Sélectionné : ${file.name} — ${mb} Mo`;
+  fi.textContent = `Sélectionné : ${file.name} — ${formatBytes(file.size)}`;
   fi.classList.remove('hidden');
+  hideProgress('');
 
   const warn = document.getElementById('sizeWarn');
-  if(file.size > COMPRESS_THRESHOLD){
-    warn.textContent = "ℹ️ L'audio sera extrait automatiquement avant l'envoi (dans le navigateur, sans téléchargement — ça prend la durée de la vidéo), pour rester sous la limite gratuite de 25 Mo (~1h30 de cours max une fois extrait). Garde l'écran allumé et l'appli ouverte pendant l'extraction.";
+  if(isProbablyVideo(file)){
+    warn.innerHTML = "ℹ️ Vidéo détectée : l'app va préparer un audio léger avant l'envoi. Ça prend la durée réelle de la vidéo. Garde l'écran allumé.";
+    warn.classList.remove('hidden');
+  } else if(file.size > COMPRESS_THRESHOLD){
+    warn.innerHTML = "ℹ️ Audio lourd : l'app va essayer de le compresser avant transcription pour rester sous la limite par fichier.";
     warn.classList.remove('hidden');
   } else {
-    warn.classList.add('hidden');
+    warn.innerHTML = "✅ Audio prêt : il sera envoyé directement à la transcription.";
+    warn.classList.remove('hidden');
   }
 }
 
-// ---------- EXTRACTION AUDIO (100% native navigateur, sans téléchargement externe) ----------
-// Utilise l'API Web Audio (déjà intégrée à tous les navigateurs) pour décoder la piste audio
-// d'une vidéo/fichier. Lit la vidéo progressivement (comme une lecture normale, mais
-// muette, en arrière-plan) et enregistre uniquement l'audio au fur et à mesure.
-// Ne charge JAMAIS le fichier entier en mémoire d'un coup — fonctionne donc même
-// pour des fichiers très volumineux (300+ Mo), contrairement à un décodage en un bloc.
+// ---------- EXTRACTION AUDIO (progressive, native navigateur) ----------
+// La méthode lit le média comme une lecture normale et enregistre uniquement son audio.
+// Elle évite de charger toute la vidéo en mémoire d'un seul coup.
 let activeWakeLock = null;
 async function requestWakeLock(){
   try{
-    if('wakeLock' in navigator){
-      activeWakeLock = await navigator.wakeLock.request('screen');
-    }
+    if('wakeLock' in navigator){ activeWakeLock = await navigator.wakeLock.request('screen'); }
   }catch(e){ console.warn('Wake Lock indisponible :', e); }
 }
 function releaseWakeLock(){
   if(activeWakeLock){ activeWakeLock.release().catch(()=>{}); activeWakeLock = null; }
 }
 
-async function extractAudioViaPlayback(file){
-  await requestWakeLock(); // empêche l'écran de s'éteindre pendant l'extraction (temps réel)
+async function extractAudioProgressive(file, progressTarget){
+  if(!window.AudioContext && !window.webkitAudioContext){ throw new Error('AudioContext non supporté par ce navigateur.'); }
+  if(!window.MediaRecorder){ throw new Error('MediaRecorder non supporté par ce navigateur.'); }
+  const mimeType = pickRecorderMime();
+  if(!mimeType){ throw new Error('Aucun format audio enregistrable supporté par ce navigateur.'); }
+
+  await requestWakeLock();
+  setProgress(progressTarget, 'Étape 1/3 : préparation du fichier…', 8);
+
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
-    const video = document.createElement('video');
-    video.src = url;
-    video.muted = false;      // doit "jouer" pour que le flux audio existe
-    // Remarque : pas de volume=0 ici — sur certains navigateurs mobiles, couper le volume
-    // de l'élément coupe aussi le son AVANT qu'il n'atteigne l'enregistreur (silence capté).
-    // Le routage ci-dessous (source → dest, jamais vers les haut-parleurs) suffit à ce
-    // que rien ne soit audible pendant l'extraction.
-    video.playsInline = true;
-    video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;';
-    document.body.appendChild(video);
+    const media = document.createElement(isProbablyVideo(file) ? 'video' : 'audio');
+    media.src = url;
+    media.preload = 'metadata';
+    media.playsInline = true;
+    media.controls = false;
+    media.muted = false;
+    media.volume = 1;
+    media.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+    document.body.appendChild(media);
 
-    let audioCtx, recorder, timeoutId;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    const dest = ctx.createMediaStreamDestination();
     const chunks = [];
+    let recorder = null;
+    let source = null;
+    let progressTimer = null;
+    let watchdog = null;
+    let settled = false;
 
     const cleanup = () => {
-      clearTimeout(timeoutId);
-      try{ video.pause(); }catch(e){}
-      video.remove();
+      clearInterval(progressTimer);
+      clearTimeout(watchdog);
+      try{ media.pause(); }catch(e){}
+      try{ if(source) source.disconnect(); }catch(e){}
+      try{ media.removeAttribute('src'); media.load(); }catch(e){}
+      media.remove();
       URL.revokeObjectURL(url);
-      if(audioCtx) audioCtx.close().catch(()=>{});
+      ctx.close().catch(()=>{});
       releaseWakeLock();
     };
+    const fail = (err) => {
+      if(settled) return;
+      settled = true;
+      try{ if(recorder && recorder.state !== 'inactive') recorder.stop(); }catch(e){}
+      cleanup();
+      reject(err);
+    };
+    const finish = () => {
+      if(settled) return;
+      settled = true;
+      const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+      cleanup();
+      if(!blob.size){ reject(new Error("Aucun audio détecté dans ce fichier.")); return; }
+      const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+      resolve({ blob, mimeType: mimeType || 'audio/webm', ext });
+    };
 
-    video.onerror = () => { cleanup(); reject(new Error("Impossible de lire ce fichier vidéo pour en extraire l'audio.")); };
-
-    video.onloadedmetadata = () => {
+    media.onerror = () => fail(new Error("Impossible de lire ce fichier dans le navigateur."));
+    media.onloadedmetadata = async () => {
       try{
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioCtx.createMediaElementSource(video);
-        const dest = audioCtx.createMediaStreamDestination();
-        source.connect(dest); // routé uniquement vers l'enregistreur, jamais vers les haut-parleurs
+        const duration = Number.isFinite(media.duration) ? media.duration : 0;
+        if(duration && duration > MAX_PROGRESSIVE_SECONDS){
+          throw new Error("Fichier trop long pour une extraction mobile fiable. Coupe-le en parties de 10 à 20 minutes.");
+        }
+        setProgress(progressTarget, 'Étape 1/3 : fichier lisible, démarrage audio…', 18);
+        if(ctx.state === 'suspended') await ctx.resume();
+        source = ctx.createMediaElementSource(media);
+        source.connect(dest); // pas connecté aux haut-parleurs
 
-        recorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 });
-        recorder.ondataavailable = (e) => { if(e.data && e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = () => { cleanup(); resolve(new Blob(chunks, { type: 'audio/webm' })); };
-        recorder.onerror = (e) => { cleanup(); reject(e.error || new Error('Erreur MediaRecorder')); };
+        recorder = new MediaRecorder(dest.stream, { mimeType, audioBitsPerSecond: 32000 });
+        recorder.ondataavailable = (ev) => { if(ev.data && ev.data.size > 0) chunks.push(ev.data); };
+        recorder.onerror = () => fail(new Error("Erreur pendant l'enregistrement audio interne."));
+        recorder.onstop = finish;
 
-        // Sécurité anti-blocage : si la durée est corrompue/infinie (fréquent sur certains
-        // enregistrements d'écran non finalisés), on plafonne à 20 min max.
-        const durationSec = isFinite(video.duration) && video.duration > 0 ? video.duration : (20 * 60);
-        const capSec = Math.min(durationSec, 20 * 60) + 5;
-        timeoutId = setTimeout(() => { if(recorder.state === 'recording') recorder.stop(); }, capSec * 1000);
+        progressTimer = setInterval(() => {
+          const cur = media.currentTime || 0;
+          const dur = Number.isFinite(media.duration) ? media.duration : 0;
+          const pctTxt = dur ? ` / ${formatTime(dur)}` : '';
+          const percent = dur ? Math.max(20, Math.min(88, (cur/dur)*72 + 18)) : 35;
+          setProgress(progressTarget, `Étape 2/3 : extraction audio… ${formatTime(cur)}${pctTxt}<br><small>Garde l'écran allumé et l'app ouverte.</small>`, percent);
+          toast(`<span class="spin"></span> Extraction audio… ${formatTime(cur)}${pctTxt}`, true);
+        }, 2000);
 
-        video.ontimeupdate = () => {
-          if(isFinite(video.duration) && video.duration > 0){
-            const pct = Math.round((video.currentTime / video.duration) * 100);
-            toast(`<span class="spin"></span> Extraction audio… ${pct}%`, true);
-          } else {
-            toast(`<span class="spin"></span> Extraction audio… ${Math.round(video.currentTime)}s`, true);
-          }
+        media.onended = () => {
+          try{ if(recorder && recorder.state !== 'inactive') recorder.stop(); }catch(e){ fail(e); }
         };
-        video.onended = () => { if(recorder.state === 'recording') recorder.stop(); };
+        watchdog = setTimeout(() => {
+          fail(new Error("Extraction interrompue : durée trop longue ou métadonnées vidéo incorrectes."));
+        }, ((duration || MAX_PROGRESSIVE_SECONDS) + 40) * 1000);
 
-        recorder.start();
-        video.play().catch((err) => { cleanup(); reject(err); });
-      }catch(err){
-        cleanup();
-        reject(err);
-      }
+        recorder.start(4000);
+        await media.play();
+      }catch(err){ fail(err); }
     };
   });
 }
@@ -617,36 +740,47 @@ async function startTranscription(){
   const key = getGroqKey();
   if(!key){ toast("Ajoute d'abord ta clé Groq (⚙️ en haut à droite)"); return; }
   if(!currentFile){ toast("Choisis d'abord un fichier vidéo/audio"); return; }
+  saveCourse(true);
+  hideProgress('');
 
   let fileToSend = currentFile;
+  const mustExtract = isProbablyVideo(currentFile) || currentFile.size > COMPRESS_THRESHOLD;
 
-  if(currentFile.size > COMPRESS_THRESHOLD){
+  if(mustExtract){
     try{
-      const audioBlob = await extractAudioViaPlayback(currentFile);
-      const beforeMb = (currentFile.size/1024/1024).toFixed(1);
-      const afterMb = (audioBlob.size/1024/1024).toFixed(1);
-      fileToSend = new File([audioBlob], (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + '.webm', { type: 'audio/webm' });
-      toast(`Extraction audio : ${beforeMb} Mo → ${afterMb} Mo ✅`, true);
+      const before = formatBytes(currentFile.size);
+      const extracted = await extractAudioProgressive(currentFile, '');
+      setProgress('', 'Étape 3/3 : préparation de l’envoi à Groq…', 92);
+      const after = formatBytes(extracted.blob.size);
+      fileToSend = new File(
+        [extracted.blob],
+        (currentFile.name.replace(/\.[^.]+$/, '') || 'audio') + '-audio.' + extracted.ext,
+        { type: extracted.mimeType }
+      );
+      toast(`Audio préparé : ${before} → ${after} ✅`, true);
+      await new Promise(r => setTimeout(r, 700));
     }catch(err){
-      console.error('Compression échouée', err);
-      const detail = (err && (err.message || err.toString())) || 'erreur inconnue';
-      toast(`⚠️ Compression échouée : ${detail.slice(0,160)}`, false, 8000);
-      await new Promise(r => setTimeout(r, 2500)); // laisse le temps de lire avant le prochain toast
-      fileToSend = currentFile;
+      console.error('Extraction audio échouée', err);
+      hideToast();
+      hideProgress('');
+      if(currentFile.size <= GROQ_LIMIT && !isProbablyVideo(currentFile)){
+        fileToSend = currentFile;
+      } else {
+        toast(`❌ ${friendlyError(err)}`, false, 9000);
+        return;
+      }
     }
   }
 
   if(fileToSend.size > GROQ_LIMIT){
     hideToast();
-    if(fileToSend === currentFile){
-      toast("❌ La compression a échoué (voir message ci-dessus) et le fichier original dépasse 25 Mo. Réessaie — si ça persiste, note le message d'erreur et montre-le-moi.", false, 6000);
-    } else {
-      toast("❌ Fichier encore trop volumineux (>25 Mo) même après compression. Essaie une vidéo plus courte.");
-    }
+    hideProgress('');
+    toast("❌ Audio encore trop lourd après préparation. Coupe le cours en plusieurs parties plus courtes.", false, 8000);
     return;
   }
 
-  toast('<span class="spin"></span> Transcription en cours… (peut prendre 1-2 min)', true);
+  setProgress('', 'Envoi à Groq + transcription…', 96);
+  toast('<span class="spin"></span> Transcription en cours…', true);
 
   try{
     const form = new FormData();
@@ -663,7 +797,7 @@ async function startTranscription(){
 
     if(!res.ok){
       const errText = await res.text();
-      throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0,200));
+      throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0,220));
     }
 
     const text = await res.text();
@@ -671,11 +805,14 @@ async function startTranscription(){
     ta.value = (ta.value ? ta.value + "\n\n" : "") + text.trim();
     saveCourse(true);
     hideToast();
+    setProgress('', 'Transcription terminée ✅', 100);
+    setTimeout(()=>hideProgress(''), 1200);
     toast("Transcription terminée ✅");
   }catch(err){
     hideToast();
+    hideProgress('');
     console.error(err);
-    toast("❌ Échec transcription : " + err.message.slice(0,140));
+    toast("❌ " + friendlyError(err), false, 9000);
   }
 }
 
@@ -729,7 +866,7 @@ Règles : reste fidèle au contenu réel de la transcription, ne complète jamai
   }catch(err){
     hideToast();
     console.error(err);
-    toast("❌ Échec résumé : " + err.message.slice(0,140));
+    toast("❌ Échec résumé : " + friendlyError(err), false, 8000);
   }
 }
 
@@ -786,7 +923,8 @@ function onImportBackup(e){
 }
 
 function buildCourseTxtContent(){
-  const title = document.getElementById('f-title').value || "cours";
+  const c = courses.find(x=>x.id===currentId);
+  const title = document.getElementById('f-title').value || autoCourseTitle(c) || "cours";
   const content = `${title}\nThème : ${document.getElementById('f-theme').value}\n\n--- TRANSCRIPTION ---\n${document.getElementById('f-transcript').value}\n\n--- RÉSUMÉ IA ---\n${document.getElementById('f-summary').value}\n\n--- NOTES PERSONNELLES ---\n${document.getElementById('f-notes').value}\n`;
   return { title, content };
 }
@@ -824,7 +962,9 @@ async function shareTxt(){
 // ---------- SERVICE WORKER ----------
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.update().catch(()=>{});
+    }).catch(()=>{});
   });
 }
 
