@@ -1,4 +1,4 @@
-const CACHE = "resutrans-v11-audio-final";
+const CACHE = "resutrans-v12-summary-fix";
 const SHELL = [
   "./index.html",
   "./manifest.json",

@@ -371,6 +371,9 @@ function friendlyError(err){
     return "Ce navigateur ne supporte pas l'extraction audio nécessaire. Ouvre l'app dans Chrome Android.";
   }
   if(/HTTP 401|401/.test(raw)) return "Clé Groq refusée. Vérifie la clé dans ⚙️ Clé.";
+  if(/HTTP 403|403|permission|not authorized|forbidden/i.test(raw)) return "La clé Groq fonctionne peut-être pour la transcription, mais pas pour ce modèle de résumé. Crée une nouvelle clé ou vérifie les permissions des modèles dans Groq.";
+  if(/HTTP 404|404|model|does not exist|not found|decommissioned/i.test(raw)) return "Modèle de résumé Groq indisponible. La V12 essaie plusieurs modèles automatiquement ; vérifie aussi que ton compte Groq autorise le chat.";
+  if(/HTTP 429|429|rate limit|quota|too many/i.test(raw)) return "Limite Groq atteinte pour le résumé. Réessaie plus tard, ou utilise une transcription plus courte.";
   if(/HTTP 413|413|too large|25/i.test(raw)) return "Fichier trop lourd pour l'API audio. Utilise un fichier plus court ou extrais un audio plus léger.";
   if(/Failed to fetch|NetworkError|Load failed/i.test(raw)) return "Connexion ou appel API bloqué. Vérifie internet, puis réessaie.";
   return raw ? raw.slice(0,180) : "Erreur inconnue.";
@@ -817,6 +820,95 @@ async function startTranscription(){
 }
 
 // ---------- RÉSUMÉ IA (Groq chat completion) ----------
+const SUMMARY_MODELS = [
+  'openai/gpt-oss-20b',
+  'llama-3.1-8b-instant',
+  'llama-3.3-70b-versatile'
+];
+
+function summaryPrompt(){
+  return `Tu aides à retenir l'essentiel d'un cours (danse, musique, langue, travail, réunion, etc.) à partir d'une transcription brute, en français.
+
+Ta réponse doit suivre EXACTEMENT cette structure en texte brut (pas de markdown, pas de #, pas de **) :
+
+RÉSUMÉ
+3 à 5 phrases précises sur ce qui a été concrètement expliqué. Reste fidèle au contenu.
+
+POINTS CLÉS
+- Un point concret par ligne.
+- Mentionne les consignes, corrections, idées importantes ou décisions entendues.
+- N'invente rien si la transcription ne le dit pas.
+
+À RETENIR / À FAIRE
+1 à 3 actions simples ou éléments à revoir.
+
+Si la transcription est trop courte, confuse ou incomplète, dis-le clairement au lieu de compléter avec des suppositions.`;
+}
+
+async function callGroqSummary(key, transcript){
+  const errors = [];
+  const cleanTranscript = transcript.slice(0, 18000);
+
+  for(const model of SUMMARY_MODELS){
+    toast(`<span class="spin"></span> Résumé IA… modèle ${model}`, true);
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: summaryPrompt() },
+          { role: 'user', content: cleanTranscript }
+        ],
+        temperature: 0.2,
+        max_completion_tokens: 900
+      })
+    });
+
+    if(res.ok){
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content?.trim();
+      if(content) return { content, model };
+      errors.push(`${model}: réponse vide`);
+      continue;
+    }
+
+    const errText = await res.text();
+    const msg = `HTTP ${res.status} — ${errText.slice(0,220)}`;
+    errors.push(`${model}: ${msg}`);
+
+    // Si la clé est refusée, inutile d'essayer un autre modèle.
+    if(res.status === 401 || res.status === 403){
+      throw new Error(msg);
+    }
+    // Pour 400/404/429/500, on tente automatiquement le modèle suivant.
+  }
+
+  throw new Error(errors.join(' | '));
+}
+
+function localSummaryFallback(transcript){
+  const text = transcript.replace(/\s+/g, ' ').trim();
+  const sentences = text.match(/[^.!?。！？]+[.!?。！？]?/g) || [text];
+  const picked = sentences
+    .map(s => s.trim())
+    .filter(s => s.length > 35)
+    .slice(0, 5);
+  const preview = picked.length ? picked.join(' ') : text.slice(0, 700);
+  return `RÉSUMÉ LOCAL (sans IA)
+${preview || 'La transcription est trop courte pour produire un résumé local.'}
+
+POINTS CLÉS
+- Résumé IA indisponible pour le moment.
+- La transcription est conservée : tu peux réessayer le bouton Résumé IA plus tard.
+
+À RETENIR / À FAIRE
+Réessayer avec une connexion stable ou vérifier que la clé Groq autorise les modèles de chat.`;
+}
+
 async function summarize(){
   const key = getGroqKey();
   const transcript = document.getElementById('f-transcript').value.trim();
@@ -825,48 +917,17 @@ async function summarize(){
 
   toast('<span class="spin"></span> Génération du résumé…', true);
   try{
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + key,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: `Tu aides à retenir l'essentiel d'un cours (danse, musique, langue, etc.) à partir de sa transcription brute, en français.
-
-Ta réponse doit suivre EXACTEMENT cette structure en texte brut (pas de markdown, pas de #, pas de **) :
-
-RÉSUMÉ
-(3-4 phrases précises sur ce qui a été concrètement expliqué ou pratiqué — pas de généralités du type "le cours a couvert plusieurs aspects", va dans le détail réel du contenu)
-
-POINTS CLÉS ET CORRECTIONS
-- (chaque point technique, correction du prof, ou notion abordée, un par ligne avec un tiret — sois concret : cite les mouvements, techniques ou erreurs mentionnées, pas des généralités)
-
-OBJECTIF PROCHAINE SÉANCE
-(1-2 phrases actionnables : quoi travailler concrètement avant le prochain cours)
-
-Règles : reste fidèle au contenu réel de la transcription, ne complète jamais avec des suppositions génériques. Si la transcription est courte ou peu claire, dis-le plutôt que d'inventer du contenu.` },
-          { role: 'user', content: transcript.slice(0, 15000) }
-        ],
-        temperature: 0.4
-      })
-    });
-    if(!res.ok){
-      const errText = await res.text();
-      throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0,200));
-    }
-    const data = await res.json();
-    const summary = data.choices?.[0]?.message?.content?.trim() || "";
-    document.getElementById('f-summary').value = summary;
+    const result = await callGroqSummary(key, transcript);
+    document.getElementById('f-summary').value = result.content;
     saveCourse(true);
     hideToast();
-    toast("Résumé généré ✅");
+    toast(`Résumé généré ✅ (${result.model})`);
   }catch(err){
     hideToast();
     console.error(err);
-    toast("❌ Échec résumé : " + friendlyError(err), false, 8000);
+    document.getElementById('f-summary').value = localSummaryFallback(transcript);
+    saveCourse(true);
+    toast("⚠️ Résumé IA indisponible. Résumé local créé. Détail : " + friendlyError(err), false, 10000);
   }
 }
 

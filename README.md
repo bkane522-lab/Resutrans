@@ -69,3 +69,11 @@ Place ces fichiers à la racine du dépôt GitHub :
 Puis redéploie sur Vercel.
 
 Après déploiement, recharge l'app. Si l'ancienne version reste affichée, ferme l'app PWA, vide le cache Chrome ou réinstalle la PWA.
+
+
+## V12 — Correction Résumé IA
+
+- Le bouton Résumé IA essaie plusieurs modèles Groq automatiquement, en commençant par `openai/gpt-oss-20b`.
+- Si un modèle est refusé, limité ou indisponible, l’app tente le suivant.
+- Si Groq est indisponible, un résumé local de secours est créé pour ne pas bloquer le travail.
+- Cache PWA mis à jour : `resutrans-v12-summary-fix`.
