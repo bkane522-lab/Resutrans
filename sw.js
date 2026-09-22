@@ -1,4 +1,4 @@
-const CACHE = "resutrans-v12-summary-fix";
+const CACHE = "resutrans-v14-backend-only";
 const SHELL = [
   "./index.html",
   "./manifest.json",

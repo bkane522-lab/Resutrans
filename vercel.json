@@ -6,5 +6,9 @@
         { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/transcribe.js": { "maxDuration": 60 },
+    "api/summarize.js": { "maxDuration": 60 }
+  }
 }

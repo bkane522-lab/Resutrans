@@ -128,9 +128,9 @@
   <div class="logo">RT</div>
   <div>
     <h1>Resutrans</h1>
-    <p>Transcris tes cours sans abonnement.</p>
+    <p>Transcris et résume sans abonnement.</p>
   </div>
-  <button class="settingsBtn" onclick="openSettings()">⚙️ Clé</button>
+  <button class="settingsBtn" onclick="openSettings()">✅ API</button>
 </header>
 
 <main>
@@ -148,7 +148,7 @@
     <button class="btn btn-grad" onclick="openNewCourse()">+ Nouveau cours</button>
     <button class="heavyBtn" onclick="openExtractTool()">🎵 Mode vidéo lourde / Android<small>À utiliser si une vidéo ScreenRecorder ou téléphone bloque.</small></button>
 
-    <div class="heroNote"><b>Objectif :</b> importer un audio ou une vidéo, extraire l'audio si nécessaire, puis transcrire avec ta clé Groq. Pas d'abonnement externe.</div>
+    <div class="heroNote"><b>Objectif :</b> importer un audio ou une vidéo, extraire l'audio si nécessaire, puis transcrire avec Groq via une clé cachée dans Vercel. Pas d'abonnement externe.</div>
 
     <div class="stats">
       <div class="stat"><b id="statCount">0</b><span>cours</span></div>
@@ -156,7 +156,7 @@
     </div>
 
     <div class="card" style="font-size:13px;color:var(--sub);">
-      <b style="color:var(--text)">Important :</b> tes vidéos et transcriptions restent stockées uniquement sur cet appareil (localStorage). Rien n'est envoyé à un serveur, sauf l'appel direct à l'API Groq pour la transcription.
+      <b style="color:var(--text)">Important :</b> tes cours restent stockés uniquement sur cet appareil (localStorage). L'audio est envoyé à ton API Vercel privée, qui appelle Groq avec une clé cachée côté serveur.
     </div>
 
     <div id="courseList"></div>
@@ -275,17 +275,20 @@
 <div id="settingsModal" class="modalBg hidden">
   <div class="modalCard">
     <span class="closeX" onclick="closeSettings()">✕</span>
-    <h3 style="margin-top:0;">Clé API Groq</h3>
-    <p style="color:var(--sub);font-size:13px;">
-      Nécessaire pour la transcription et le résumé IA. À récupérer sur
-      <a href="https://console.groq.com/keys" target="_blank" style="color:var(--grad1);">console.groq.com/keys</a>.
-      Elle est stockée uniquement sur ton téléphone (localStorage), puis utilisée uniquement pour appeler Groq.
+    <h3 style="margin-top:0;">API configurée côté serveur</h3>
+    <p style="color:var(--sub);font-size:13px;line-height:1.45;">
+      La clé Groq ne doit plus être entrée dans l'application. Elle doit être cachée dans Vercel avec le nom
+      <b style="color:var(--text)">GROQ_API_KEY</b>.
     </p>
-    <input type="text" id="groqKeyInput" placeholder="gsk_...">
-    <small class="help">⚠️ Comme l'appli appelle Groq directement depuis le navigateur, ta clé est visible dans le code du navigateur. Garde le lien de cette appli privé, ne le partage pas publiquement.</small>
-    <div class="row" style="margin-top:14px;">
-      <button class="btn btn-grad" onclick="saveSettings()">Enregistrer la clé</button>
+    <div class="tipBox">
+      <b style="color:var(--text);">À vérifier dans Vercel</b><br>
+      Settings → Environment Variables → <b style="color:var(--text);">GROQ_API_KEY</b> → Production → Save → Redeploy.
     </div>
+    <div class="tipBox">
+      <b style="color:var(--text);">Résumé IA V14</b><br>
+      Le modèle Groq inaccessible <b style="color:var(--text);">llama-3.3-70b-versatile</b> a été retiré. L'app utilise maintenant uniquement l'API serveur.
+    </div>
+    <button class="btn btn-grad" style="margin-top:14px;" onclick="closeSettings()">OK</button>
   </div>
 </div>
 
@@ -294,11 +297,17 @@
 <script>
 // ---------- STORAGE ----------
 const LS_COURSES = "resutrans_courses";
-const LS_KEY = "resutrans_groq_key";
+const LS_KEY_OLD = "resutrans_groq_key"; // ancienne clé locale : supprimée par sécurité
+const SERVER_TRANSCRIBE_URL = "./api/transcribe";
+const SERVER_SUMMARIZE_URL = "./api/summarize";
+
+try{
+  localStorage.removeItem(LS_KEY_OLD);
+  sessionStorage.removeItem(LS_KEY_OLD);
+}catch(e){}
 
 function loadCourses(){ try{ return JSON.parse(localStorage.getItem(LS_COURSES)) || []; }catch(e){ return []; } }
 function saveCourses(list){ localStorage.setItem(LS_COURSES, JSON.stringify(list)); }
-function getGroqKey(){ return localStorage.getItem(LS_KEY) || ""; }
 
 let courses = loadCourses();
 let currentId = null;
@@ -370,9 +379,10 @@ function friendlyError(err){
   if(/MediaRecorder|mime|support/i.test(raw)){
     return "Ce navigateur ne supporte pas l'extraction audio nécessaire. Ouvre l'app dans Chrome Android.";
   }
-  if(/HTTP 401|401/.test(raw)) return "Clé Groq refusée. Vérifie la clé dans ⚙️ Clé.";
+  if(/GROQ_API_KEY|Configuration manquante|missing api key|API key manquante|SERVER 500/i.test(raw)) return "Clé serveur manquante : ajoute GROQ_API_KEY dans Vercel en Production, puis redéploie.";
+  if(/HTTP 401|401/.test(raw)) return "Clé Groq refusée. Vérifie la variable GROQ_API_KEY dans Vercel.";
   if(/HTTP 403|403|permission|not authorized|forbidden/i.test(raw)) return "La clé Groq fonctionne peut-être pour la transcription, mais pas pour ce modèle de résumé. Crée une nouvelle clé ou vérifie les permissions des modèles dans Groq.";
-  if(/HTTP 404|404|model|does not exist|not found|decommissioned/i.test(raw)) return "Modèle de résumé Groq indisponible. La V12 essaie plusieurs modèles automatiquement ; vérifie aussi que ton compte Groq autorise le chat.";
+  if(/HTTP 404|404|model|does not exist|not found|decommissioned/i.test(raw)) return "Modèle de résumé Groq indisponible. La V14 a retiré le modèle 70B inaccessible ; redéploie bien les fichiers api/summarize.js et sw.js.";
   if(/HTTP 429|429|rate limit|quota|too many/i.test(raw)) return "Limite Groq atteinte pour le résumé. Réessaie plus tard, ou utilise une transcription plus courte.";
   if(/HTTP 413|413|too large|25/i.test(raw)) return "Fichier trop lourd pour l'API audio. Utilise un fichier plus court ou extrais un audio plus léger.";
   if(/Failed to fetch|NetworkError|Load failed/i.test(raw)) return "Connexion ou appel API bloqué. Vérifie internet, puis réessaie.";
@@ -392,16 +402,9 @@ function hideToast(){ document.getElementById('toast').classList.add('hidden'); 
 
 // ---------- SETTINGS ----------
 function openSettings(){
-  document.getElementById('groqKeyInput').value = getGroqKey();
   document.getElementById('settingsModal').classList.remove('hidden');
 }
 function closeSettings(){ document.getElementById('settingsModal').classList.add('hidden'); }
-function saveSettings(){
-  const v = document.getElementById('groqKeyInput').value.trim();
-  localStorage.setItem(LS_KEY, v);
-  closeSettings();
-  toast("Clé enregistrée ✅");
-}
 
 // ---------- LIST VIEW ----------
 function renderList(){
@@ -738,10 +741,29 @@ async function extractAudioProgressive(file, progressTarget){
   });
 }
 
-// ---------- TRANSCRIPTION (Groq Whisper, direct from browser) ----------
+// ---------- TRANSCRIPTION (API Vercel privée uniquement) ----------
+function createTranscriptionForm(file){
+  const form = new FormData();
+  form.append('file', file);
+  form.append('model', 'whisper-large-v3-turbo');
+  form.append('language', 'fr');
+  form.append('response_format', 'text');
+  return form;
+}
+
+async function transcribeViaServer(file){
+  const res = await fetch(SERVER_TRANSCRIBE_URL, {
+    method: 'POST',
+    body: createTranscriptionForm(file)
+  });
+  const text = await res.text();
+  if(!res.ok){
+    throw new Error('SERVER ' + res.status + ' — ' + text.slice(0,420));
+  }
+  return text;
+}
+
 async function startTranscription(){
-  const key = getGroqKey();
-  if(!key){ toast("Ajoute d'abord ta clé Groq (⚙️ en haut à droite)"); return; }
   if(!currentFile){ toast("Choisis d'abord un fichier vidéo/audio"); return; }
   saveCourse(true);
   hideProgress('');
@@ -782,28 +804,11 @@ async function startTranscription(){
     return;
   }
 
-  setProgress('', 'Envoi à Groq + transcription…', 96);
+  setProgress('', 'Envoi + transcription…', 96);
   toast('<span class="spin"></span> Transcription en cours…', true);
 
   try{
-    const form = new FormData();
-    form.append('file', fileToSend);
-    form.append('model', 'whisper-large-v3-turbo');
-    form.append('language', 'fr');
-    form.append('response_format', 'text');
-
-    const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + key },
-      body: form
-    });
-
-    if(!res.ok){
-      const errText = await res.text();
-      throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0,220));
-    }
-
-    const text = await res.text();
+    const text = await transcribeViaServer(fileToSend);
     const ta = document.getElementById('f-transcript');
     ta.value = (ta.value ? ta.value + "\n\n" : "") + text.trim();
     saveCourse(true);
@@ -815,81 +820,11 @@ async function startTranscription(){
     hideToast();
     hideProgress('');
     console.error(err);
-    toast("❌ " + friendlyError(err), false, 9000);
+    toast("❌ " + friendlyError(err), false, 11000);
   }
 }
 
-// ---------- RÉSUMÉ IA (Groq chat completion) ----------
-const SUMMARY_MODELS = [
-  'openai/gpt-oss-20b',
-  'llama-3.1-8b-instant',
-  'llama-3.3-70b-versatile'
-];
-
-function summaryPrompt(){
-  return `Tu aides à retenir l'essentiel d'un cours (danse, musique, langue, travail, réunion, etc.) à partir d'une transcription brute, en français.
-
-Ta réponse doit suivre EXACTEMENT cette structure en texte brut (pas de markdown, pas de #, pas de **) :
-
-RÉSUMÉ
-3 à 5 phrases précises sur ce qui a été concrètement expliqué. Reste fidèle au contenu.
-
-POINTS CLÉS
-- Un point concret par ligne.
-- Mentionne les consignes, corrections, idées importantes ou décisions entendues.
-- N'invente rien si la transcription ne le dit pas.
-
-À RETENIR / À FAIRE
-1 à 3 actions simples ou éléments à revoir.
-
-Si la transcription est trop courte, confuse ou incomplète, dis-le clairement au lieu de compléter avec des suppositions.`;
-}
-
-async function callGroqSummary(key, transcript){
-  const errors = [];
-  const cleanTranscript = transcript.slice(0, 18000);
-
-  for(const model of SUMMARY_MODELS){
-    toast(`<span class="spin"></span> Résumé IA… modèle ${model}`, true);
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + key,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: summaryPrompt() },
-          { role: 'user', content: cleanTranscript }
-        ],
-        temperature: 0.2,
-        max_completion_tokens: 900
-      })
-    });
-
-    if(res.ok){
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content?.trim();
-      if(content) return { content, model };
-      errors.push(`${model}: réponse vide`);
-      continue;
-    }
-
-    const errText = await res.text();
-    const msg = `HTTP ${res.status} — ${errText.slice(0,220)}`;
-    errors.push(`${model}: ${msg}`);
-
-    // Si la clé est refusée, inutile d'essayer un autre modèle.
-    if(res.status === 401 || res.status === 403){
-      throw new Error(msg);
-    }
-    // Pour 400/404/429/500, on tente automatiquement le modèle suivant.
-  }
-
-  throw new Error(errors.join(' | '));
-}
-
+// ---------- RÉSUMÉ IA (API Vercel privée uniquement) ----------
 function localSummaryFallback(transcript){
   const text = transcript.replace(/\s+/g, ' ').trim();
   const sentences = text.match(/[^.!?。！？]+[.!?。！？]?/g) || [text];
@@ -906,18 +841,35 @@ POINTS CLÉS
 - La transcription est conservée : tu peux réessayer le bouton Résumé IA plus tard.
 
 À RETENIR / À FAIRE
-Réessayer avec une connexion stable ou vérifier que la clé Groq autorise les modèles de chat.`;
+Vérifier dans Vercel que GROQ_API_KEY est bien ajoutée en Production, puis redéployer.`;
+}
+
+async function summarizeViaServer(transcript){
+  const res = await fetch(SERVER_SUMMARIZE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transcript })
+  });
+  const text = await res.text();
+  if(!res.ok){
+    throw new Error('SERVER ' + res.status + ' — ' + text.slice(0,500));
+  }
+  try{
+    const data = JSON.parse(text);
+    return { content: data.content || '', model: data.model || 'serveur' };
+  }catch(e){
+    return { content: text.trim(), model: 'serveur' };
+  }
 }
 
 async function summarize(){
-  const key = getGroqKey();
   const transcript = document.getElementById('f-transcript').value.trim();
-  if(!key){ toast("Ajoute d'abord ta clé Groq (⚙️)"); return; }
   if(!transcript){ toast("Ajoute une transcription avant de résumer"); return; }
 
-  toast('<span class="spin"></span> Génération du résumé…', true);
+  toast('<span class="spin"></span> Génération du résumé IA…', true);
   try{
-    const result = await callGroqSummary(key, transcript);
+    const result = await summarizeViaServer(transcript);
+    if(!result.content) throw new Error('Résumé vide renvoyé par le serveur.');
     document.getElementById('f-summary').value = result.content;
     saveCourse(true);
     hideToast();
