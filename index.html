@@ -32,9 +32,6 @@
   }
   header h1{font-size:19px;margin:0;}
   header p{margin:2px 0 0;font-size:12px;color:var(--sub);}
-  .settingsBtn{margin-left:auto;background:var(--card);border:1px solid var(--border);color:var(--sub);
-    border-radius:12px;padding:8px 12px;font-size:13px;}
-
   main{padding:0 16px; max-width:640px; margin:0 auto;}
 
   .btn{
@@ -114,6 +111,13 @@
   .tipBox{margin-top:10px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:14px;padding:12px;color:var(--sub);font-size:12px;line-height:1.45;}
   .miniStatus{font-size:11px;color:#ffcf6e;margin-top:5px;display:block;}
 
+
+  .installBtn{
+    margin-top:10px;background:rgba(255,255,255,.04);color:var(--text);border:1.5px solid rgba(255,182,72,.55);
+    border-radius:16px;padding:13px 18px;font-weight:800;font-size:14px;width:100%;
+  }
+  .installBtn small{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-top:4px;line-height:1.35;}
+
   .hidden{display:none !important;}
   .modalBg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:flex-end;}
   .modalCard{background:var(--bg2);width:100%;border-radius:20px 20px 0 0;padding:20px;
@@ -128,10 +132,9 @@
   <div class="logo">RT</div>
   <div>
     <h1>Resutrans</h1>
-    <p>Transcris et résume sans abonnement.</p>
+    <p>Transcris. Résume. Révise.</p>
   </div>
-  <button class="settingsBtn" onclick="openSettings()">✅ API</button>
-</header>
+  </header>
 
 <main>
 
@@ -140,15 +143,15 @@
     <div id="browserWarn" class="card hidden" style="border-color:rgba(255,207,110,.4);background:rgba(255,207,110,.08);">
       <b style="color:#ffcf6e;">⚠️ Navigateur non recommandé</b>
       <p style="font-size:13px;color:var(--sub);margin:6px 0 0;">
-        L'extraction audio ne fonctionne pas de façon fiable dans Edge sur Android (bug connu).
-        Ouvre <b>resutrans.vercel.app</b> dans <b>Chrome</b> pour que tout fonctionne correctement.
+        Pour une meilleure extraction audio sur Android, ouvre l’application dans <b>Chrome</b>.
       </p>
     </div>
 
     <button class="btn btn-grad" onclick="openNewCourse()">+ Nouveau cours</button>
-    <button class="heavyBtn" onclick="openExtractTool()">🎵 Mode vidéo lourde / Android<small>À utiliser si une vidéo ScreenRecorder ou téléphone bloque.</small></button>
+    <button id="installAppBtn" class="installBtn hidden" onclick="installApp()">📲 Installer l'application<small>Ajoute Resutrans sur ton écran d'accueil.</small></button>
+    <button class="heavyBtn" onclick="openExtractTool()">🎵 Vidéo lourde<small>À utiliser seulement si une vidéo bloque.</small></button>
 
-    <div class="heroNote"><b>Objectif :</b> importer un audio ou une vidéo, extraire l'audio si nécessaire, puis transcrire avec Groq via une clé cachée dans Vercel. Pas d'abonnement externe.</div>
+    <div class="heroNote"><b>Objectif :</b> ajoute ton audio ou ta vidéo de cours, puis récupère une transcription et un résumé clair.</div>
 
     <div class="stats">
       <div class="stat"><b id="statCount">0</b><span>cours</span></div>
@@ -156,11 +159,11 @@
     </div>
 
     <div class="card" style="font-size:13px;color:var(--sub);">
-      <b style="color:var(--text)">Important :</b> tes cours restent stockés uniquement sur cet appareil (localStorage). L'audio est envoyé à ton API Vercel privée, qui appelle Groq avec une clé cachée côté serveur.
+      <b style="color:var(--text)">Confidentialité :</b> tes cours restent stockés uniquement sur cet appareil. Les fichiers servent seulement à produire la transcription et le résumé.
     </div>
 
     <div id="courseList"></div>
-    <div id="emptyState" class="empty hidden">Aucun cours pour l'instant. Ajoute ta première vidéo de cours 👆</div>
+    <div id="emptyState" class="empty hidden">Aucun cours pour l'instant. Ajoute ton premier audio ou ta première vidéo 👆</div>
 
     <div class="card" style="margin-top:18px;">
       <b style="display:block;margin-bottom:6px;">💾 Sauvegarde</b>
@@ -271,26 +274,6 @@
 
 </main>
 
-<!-- SETTINGS MODAL -->
-<div id="settingsModal" class="modalBg hidden">
-  <div class="modalCard">
-    <span class="closeX" onclick="closeSettings()">✕</span>
-    <h3 style="margin-top:0;">API configurée côté serveur</h3>
-    <p style="color:var(--sub);font-size:13px;line-height:1.45;">
-      La clé Groq ne doit plus être entrée dans l'application. Elle doit être cachée dans Vercel avec le nom
-      <b style="color:var(--text)">GROQ_API_KEY</b>.
-    </p>
-    <div class="tipBox">
-      <b style="color:var(--text);">À vérifier dans Vercel</b><br>
-      Settings → Environment Variables → <b style="color:var(--text);">GROQ_API_KEY</b> → Production → Save → Redeploy.
-    </div>
-    <div class="tipBox">
-      <b style="color:var(--text);">Résumé IA V14</b><br>
-      Le modèle Groq inaccessible <b style="color:var(--text);">llama-3.3-70b-versatile</b> a été retiré. L'app utilise maintenant uniquement l'API serveur.
-    </div>
-    <button class="btn btn-grad" style="margin-top:14px;" onclick="closeSettings()">OK</button>
-  </div>
-</div>
 
 <div id="toast" class="toast hidden" onclick="hideToast()"></div>
 
@@ -313,7 +296,7 @@ let courses = loadCourses();
 let currentId = null;
 let currentFile = null; // File object held in memory only during this session
 const COMPRESS_THRESHOLD = 22 * 1024 * 1024; // seuil de sécurité : au-delà, on prépare un audio léger
-const GROQ_LIMIT = 25 * 1024 * 1024; // 25 Mo : limite courante par fichier pour l'API audio Groq
+const GROQ_LIMIT = 25 * 1024 * 1024; // 25 Mo : limite du service de transcription
 const MAX_PROGRESSIVE_SECONDS = 90 * 60; // sécurité mobile : environ 1h30 par import
 
 function isProbablyVideo(file){
@@ -379,13 +362,13 @@ function friendlyError(err){
   if(/MediaRecorder|mime|support/i.test(raw)){
     return "Ce navigateur ne supporte pas l'extraction audio nécessaire. Ouvre l'app dans Chrome Android.";
   }
-  if(/GROQ_API_KEY|Configuration manquante|missing api key|API key manquante|SERVER 500/i.test(raw)) return "Clé serveur manquante : ajoute GROQ_API_KEY dans Vercel en Production, puis redéploie.";
-  if(/HTTP 401|401/.test(raw)) return "Clé Groq refusée. Vérifie la variable GROQ_API_KEY dans Vercel.";
-  if(/HTTP 403|403|permission|not authorized|forbidden/i.test(raw)) return "La clé Groq fonctionne peut-être pour la transcription, mais pas pour ce modèle de résumé. Crée une nouvelle clé ou vérifie les permissions des modèles dans Groq.";
-  if(/HTTP 404|404|model|does not exist|not found|decommissioned/i.test(raw)) return "Modèle de résumé Groq indisponible. La V14 a retiré le modèle 70B inaccessible ; redéploie bien les fichiers api/summarize.js et sw.js.";
-  if(/HTTP 429|429|rate limit|quota|too many/i.test(raw)) return "Limite Groq atteinte pour le résumé. Réessaie plus tard, ou utilise une transcription plus courte.";
-  if(/HTTP 413|413|too large|25/i.test(raw)) return "Fichier trop lourd pour l'API audio. Utilise un fichier plus court ou extrais un audio plus léger.";
-  if(/Failed to fetch|NetworkError|Load failed/i.test(raw)) return "Connexion ou appel API bloqué. Vérifie internet, puis réessaie.";
+  if(/GROQ_API_KEY|Configuration manquante|missing api key|API key manquante|SERVER 500/i.test(raw)) return "Configuration serveur manquante. Ajoute la clé dans Vercel en Production, puis redéploie.";
+  if(/HTTP 401|401/.test(raw)) return "Configuration serveur refusée. Vérifie la clé dans Vercel.";
+  if(/HTTP 403|403|permission|not authorized|forbidden/i.test(raw)) return "Le résumé IA n’est pas autorisé avec la configuration actuelle. Vérifie la clé serveur ou essaie une nouvelle clé.";
+  if(/HTTP 404|404|model|does not exist|not found|decommissioned/i.test(raw)) return "Le résumé IA est momentanément indisponible. Redéploie bien les fichiers api/summarize.js et sw.js.";
+  if(/HTTP 429|429|rate limit|quota|too many/i.test(raw)) return "Limite temporaire atteinte pour le résumé. Réessaie plus tard, ou utilise une transcription plus courte.";
+  if(/HTTP 413|413|too large|25/i.test(raw)) return "Fichier trop lourd. Utilise un fichier plus court ou extrais un audio plus léger.";
+  if(/Failed to fetch|NetworkError|Load failed/i.test(raw)) return "Connexion bloquée. Vérifie internet, puis réessaie.";
   return raw ? raw.slice(0,180) : "Erreur inconnue.";
 }
 
@@ -401,10 +384,6 @@ function toast(msg, sticky, duration){
 function hideToast(){ document.getElementById('toast').classList.add('hidden'); }
 
 // ---------- SETTINGS ----------
-function openSettings(){
-  document.getElementById('settingsModal').classList.remove('hidden');
-}
-function closeSettings(){ document.getElementById('settingsModal').classList.add('hidden'); }
 
 // ---------- LIST VIEW ----------
 function renderList(){
@@ -741,7 +720,7 @@ async function extractAudioProgressive(file, progressTarget){
   });
 }
 
-// ---------- TRANSCRIPTION (API Vercel privée uniquement) ----------
+// ---------- TRANSCRIPTION (backend privé) ----------
 function createTranscriptionForm(file){
   const form = new FormData();
   form.append('file', file);
@@ -775,7 +754,7 @@ async function startTranscription(){
     try{
       const before = formatBytes(currentFile.size);
       const extracted = await extractAudioProgressive(currentFile, '');
-      setProgress('', 'Étape 3/3 : préparation de l’envoi à Groq…', 92);
+      setProgress('', 'Étape 3/3 : préparation de la transcription…', 92);
       const after = formatBytes(extracted.blob.size);
       fileToSend = new File(
         [extracted.blob],
@@ -824,7 +803,7 @@ async function startTranscription(){
   }
 }
 
-// ---------- RÉSUMÉ IA (API Vercel privée uniquement) ----------
+// ---------- RÉSUMÉ IA (backend privé) ----------
 function localSummaryFallback(transcript){
   const text = transcript.replace(/\s+/g, ' ').trim();
   const sentences = text.match(/[^.!?。！？]+[.!?。！？]?/g) || [text];
@@ -841,7 +820,7 @@ POINTS CLÉS
 - La transcription est conservée : tu peux réessayer le bouton Résumé IA plus tard.
 
 À RETENIR / À FAIRE
-Vérifier dans Vercel que GROQ_API_KEY est bien ajoutée en Production, puis redéployer.`;
+Vérifier la configuration serveur, puis redéployer.`;
 }
 
 async function summarizeViaServer(transcript){
@@ -972,6 +951,65 @@ async function shareTxt(){
   }
 }
 
+
+// ---------- INSTALLATION PWA ----------
+let deferredInstallPrompt = null;
+
+function isStandaloneApp(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function updateInstallButton(){
+  const btn = document.getElementById('installAppBtn');
+  if(!btn) return;
+  if(isStandaloneApp()){
+    btn.classList.add('hidden');
+    return;
+  }
+  btn.classList.remove('hidden');
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallButton();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('installAppBtn');
+  if(btn) btn.classList.add('hidden');
+  toast('Application installée ✅');
+});
+
+async function installApp(){
+  if(isStandaloneApp()){
+    toast('Application déjà installée ✅');
+    updateInstallButton();
+    return;
+  }
+
+  if(deferredInstallPrompt){
+    try{
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if(choice && choice.outcome === 'accepted'){
+        toast('Installation lancée ✅');
+        updateInstallButton();
+      }else{
+        toast("Installation annulée. Tu peux réessayer plus tard.", false, 4500);
+      }
+    }catch(err){
+      console.error('Installation PWA impossible', err);
+      toast("Ouvre le menu du navigateur ⋮ puis choisis Ajouter à l'écran d'accueil.", false, 6500);
+    }
+    return;
+  }
+
+  toast("Ouvre le menu du navigateur ⋮ puis choisis Ajouter à l'écran d'accueil.", false, 6500);
+}
+
 // ---------- SERVICE WORKER ----------
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
@@ -993,6 +1031,7 @@ function checkBrowserCompat(){
 // ---------- INIT ----------
 renderList();
 checkBrowserCompat();
+updateInstallButton();
 </script>
 </body>
 </html>

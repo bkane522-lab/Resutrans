@@ -1,14 +1,14 @@
-# Resutrans V14 — backend Groq uniquement
+# Resutrans V17 — bouton installer
 
 Application PWA pour transcrire et résumer des audios/vidéos de cours depuis le téléphone.
 
-## Ce qui change en V14
+## Ce qui change en V17
 
-- La clé Groq n'est plus demandée dans l'application.
-- La clé doit être cachée dans Vercel avec la variable `GROQ_API_KEY`.
-- Le résumé IA passe par `api/summarize.js`.
-- Le modèle Groq inaccessible `llama-3.3-70b-versatile` a été retiré.
-- Le cache PWA passe en `resutrans-v14-backend-only`.
+- Ajout d'un bouton public `Installer l'application` sur l'accueil.
+- Le bouton disparaît automatiquement quand l'application est déjà installée.
+- Si le navigateur ne permet pas l'installation directe, l'app affiche l'instruction courte : menu ⋮ puis `Ajouter à l'écran d'accueil`.
+- L'accueil reste sans détails techniques `API`, `Groq`, `Vercel` ou clé.
+- Le cache PWA passe en `resutrans-v17-install-button`.
 
 ## Fichiers importants
 
@@ -23,7 +23,7 @@ Application PWA pour transcrire et résumer des audios/vidéos de cours depuis l
   - `api/summarize.js`
 - `README.md`
 
-## Variable Vercel obligatoire
+## Configuration serveur
 
 Dans Vercel :
 
@@ -39,7 +39,7 @@ Puis faire un nouveau déploiement.
 
 Ouvrir :
 
-`https://resutrans.vercel.app?v=14`
+`https://resutrans.vercel.app?v=17`
 
 Tester dans cet ordre :
 
@@ -47,4 +47,3 @@ Tester dans cet ordre :
 2. transcription ;
 3. résumé IA ;
 4. vidéo Android plus lourde.
-
